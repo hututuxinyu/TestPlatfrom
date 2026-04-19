@@ -22,7 +22,7 @@ import {
   PlayCircleOutlined,
 } from '@ant-design/icons';
 import type { UploadFile } from 'antd';
-import { apiService, ScriptResponse } from '../services/api';
+import { apiService, type ScriptResponse } from '../services/api';
 
 const { TextArea } = Input;
 
@@ -71,8 +71,13 @@ export default function ScriptManagementPage() {
       return;
     }
 
+    const file = fileList[0].originFileObj;
+    if (!file) {
+      message.error('文件对象无效，请重新选择文件');
+      return;
+    }
+
     try {
-      const file = fileList[0].originFileObj as File;
       await apiService.uploadScript({
         name: values.name,
         description: values.description,
@@ -146,10 +151,11 @@ export default function ScriptManagementPage() {
 
   const handleEditClick = (script: ScriptResponse) => {
     setCurrentScript(script);
+    const tagValue = Array.isArray(script.tags) ? script.tags.join(', ') : (script.tags || '');
     editForm.setFieldsValue({
       name: script.name,
       description: script.description,
-      tags: script.tags.join(', '),
+      tags: tagValue,
     });
     setEditModalVisible(true);
   };
@@ -159,27 +165,32 @@ export default function ScriptManagementPage() {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
-      width: 80,
+      width: 60,
+      align: 'center' as const,
     },
     {
       title: '脚本名称',
       dataIndex: 'name',
       key: 'name',
+      width: 180,
+      ellipsis: true,
     },
     {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
+      width: 250,
       ellipsis: true,
     },
     {
       title: '语言',
       dataIndex: 'language',
       key: 'language',
-      width: 100,
+      width: 90,
+      align: 'center' as const,
       render: (language: string) => (
         <Tag color={language === 'python' ? 'blue' : language === 'shell' ? 'green' : 'orange'}>
-          {language}
+          {language.toUpperCase()}
         </Tag>
       ),
     },
@@ -187,32 +198,39 @@ export default function ScriptManagementPage() {
       title: '标签',
       dataIndex: 'tags',
       key: 'tags',
-      render: (tags: string[]) => (
-        <>
-          {tags.map((tag) => (
-            <Tag key={tag}>{tag}</Tag>
-          ))}
-        </>
-      ),
+      width: 150,
+      render: (tags: string | string[]) => {
+        const tagArray = Array.isArray(tags) ? tags : (typeof tags === 'string' && tags ? tags.split(',').map(t => t.trim()).filter(t => t) : []);
+        if (tagArray.length === 0) return null;
+        return (
+          <>
+            {tagArray.map((tag) => (
+              <Tag key={tag} color="cyan">{tag}</Tag>
+            ))}
+          </>
+        );
+      },
     },
     {
       title: '文件大小',
       dataIndex: 'file_size',
       key: 'file_size',
-      width: 120,
+      width: 100,
+      align: 'right' as const,
       render: (size: number) => `${(size / 1024).toFixed(2)} KB`,
     },
     {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 180,
-      render: (time: string) => new Date(time).toLocaleString(),
+      width: 160,
+      render: (time: string) => new Date(time).toLocaleString('zh-CN'),
     },
     {
       title: '操作',
       key: 'action',
-      width: 250,
+      width: 260,
+      fixed: 'right' as const,
       render: (_: any, record: ScriptResponse) => (
         <Space size="small">
           <Button
@@ -224,7 +242,7 @@ export default function ScriptManagementPage() {
             执行
           </Button>
           <Button
-            type="link"
+            type="default"
             size="small"
             icon={<EyeOutlined />}
             onClick={() => handleView(record)}
@@ -232,7 +250,7 @@ export default function ScriptManagementPage() {
             查看
           </Button>
           <Button
-            type="link"
+            type="default"
             size="small"
             icon={<EditOutlined />}
             onClick={() => handleEditClick(record)}
@@ -245,7 +263,7 @@ export default function ScriptManagementPage() {
             okText="确定"
             cancelText="取消"
           >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+            <Button type="default" size="small" danger icon={<DeleteOutlined />}>
               删除
             </Button>
           </Popconfirm>
@@ -255,36 +273,66 @@ export default function ScriptManagementPage() {
   ];
 
   return (
-    <div>
-      <Card>
-        <Space style={{ marginBottom: 16 }}>
-          <Input.Search
-            placeholder="搜索脚本名称或描述"
-            style={{ width: 300 }}
-            onSearch={(value) => {
-              setKeyword(value);
-              setPage(1);
-              loadScripts();
-            }}
-            allowClear
-          />
-          <Button
-            type="primary"
-            icon={<UploadOutlined />}
-            onClick={() => setUploadModalVisible(true)}
-          >
-            上传脚本
-          </Button>
-          <Button icon={<ReloadOutlined />} onClick={loadScripts}>
-            刷新
-          </Button>
-        </Space>
+    <div style={{ maxWidth: '100%' }}>
+      <Card
+        variant="borderless"
+        style={{
+          borderRadius: '12px',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.06)'
+        }}
+      >
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 20,
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ fontSize: '18px', fontWeight: 600, color: '#262626' }}>
+            📝 脚本管理
+          </div>
+          <Space size="middle">
+            <Input.Search
+              placeholder="搜索脚本名称或描述"
+              style={{ width: 280 }}
+              onSearch={(value) => {
+                setKeyword(value);
+                setPage(1);
+                loadScripts();
+              }}
+              allowClear
+            />
+            <Button
+              type="primary"
+              icon={<UploadOutlined />}
+              onClick={() => setUploadModalVisible(true)}
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                borderRadius: '6px',
+                height: '36px'
+              }}
+            >
+              上传脚本
+            </Button>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={loadScripts}
+              style={{ borderRadius: '6px', height: '36px' }}
+            >
+              刷新
+            </Button>
+          </Space>
+        </div>
 
         <Table
           columns={columns}
           dataSource={scripts}
           rowKey="id"
           loading={loading}
+          scroll={{ x: 1400 }}
+          style={{ marginTop: 16 }}
           pagination={{
             current: page,
             pageSize: pageSize,
@@ -310,6 +358,8 @@ export default function ScriptManagementPage() {
         }}
         onOk={() => uploadForm.submit()}
         width={600}
+        okText="确定"
+        cancelText="取消"
       >
         <Form form={uploadForm} layout="vertical" onFinish={handleUpload}>
           <Form.Item
@@ -345,7 +395,13 @@ export default function ScriptManagementPage() {
             <Upload
               fileList={fileList}
               beforeUpload={(file) => {
-                setFileList([file]);
+                const uploadFile: UploadFile = {
+                  uid: file.uid || `${Date.now()}`,
+                  name: file.name,
+                  status: 'done',
+                  originFileObj: file,
+                };
+                setFileList([uploadFile]);
                 return false;
               }}
               onRemove={() => setFileList([])}
@@ -371,6 +427,8 @@ export default function ScriptManagementPage() {
         }}
         onOk={() => editForm.submit()}
         width={600}
+        okText="确定"
+        cancelText="取消"
       >
         <Form form={editForm} layout="vertical" onFinish={handleEdit}>
           <Form.Item
@@ -401,19 +459,23 @@ export default function ScriptManagementPage() {
           setScriptContent('');
         }}
         footer={[
-          <Button key="close" onClick={() => setViewModalVisible(false)}>
+          <Button key="close" onClick={() => setViewModalVisible(false)} type="primary">
             关闭
           </Button>,
         ]}
-        width={800}
+        width={900}
       >
         <pre
           style={{
-            background: '#f5f5f5',
-            padding: 16,
-            borderRadius: 4,
+            background: '#1e1e1e',
+            color: '#d4d4d4',
+            padding: 20,
+            borderRadius: 8,
             maxHeight: 500,
             overflow: 'auto',
+            fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+            fontSize: 13,
+            lineHeight: 1.6
           }}
         >
           {scriptContent}

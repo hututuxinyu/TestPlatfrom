@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import type { ApiResponse, LoginRequest, LoginResponse, UserInfo } from '../types/api';
 
 export interface ScriptUploadRequest {
@@ -61,6 +61,21 @@ export interface ExecutionLogResponse {
 export interface ExecutionLogsResponse {
   execution_id: number;
   logs: ExecutionLogResponse[];
+}
+
+export interface ConfigResponse {
+  id: number;
+  key: string;
+  value: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConfigRequest {
+  key: string;
+  value: string;
+  description?: string;
 }
 
 class ApiService {
@@ -190,6 +205,22 @@ class ApiService {
 
   async stopExecution(executionId: number): Promise<ApiResponse<null>> {
     const response = await this.client.post<ApiResponse<null>>(`/api/v1/executions/${executionId}/stop`);
+    return response.data;
+  }
+
+  // 配置管理
+  async listConfigs(): Promise<ApiResponse<ConfigResponse[]>> {
+    const response = await this.client.get<ApiResponse<ConfigResponse[]>>('/api/v1/configs');
+    return response.data;
+  }
+
+  async createOrUpdateConfig(data: ConfigRequest): Promise<ApiResponse<ConfigResponse>> {
+    const response = await this.client.post<ApiResponse<ConfigResponse>>('/api/v1/configs', data);
+    return response.data;
+  }
+
+  async deleteConfig(key: string): Promise<ApiResponse<null>> {
+    const response = await this.client.delete<ApiResponse<null>>(`/api/v1/configs/${key}`);
     return response.data;
   }
 }

@@ -16,7 +16,7 @@ import {
   EyeOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { apiService, ExecutionResponse, ScriptResponse } from '../services/api';
+import { apiService, type ExecutionResponse, type ScriptResponse } from '../services/api';
 
 export default function ExecutionManagementPage() {
   const [executions, setExecutions] = useState<ExecutionResponse[]>([]);
@@ -131,59 +131,70 @@ export default function ExecutionManagementPage() {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
-      width: 80,
+      width: 60,
+      align: 'center' as const,
     },
     {
       title: '脚本名称',
       dataIndex: 'script_name',
       key: 'script_name',
+      width: 180,
+      ellipsis: true,
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 120,
+      width: 100,
+      align: 'center' as const,
       render: (status: string) => getStatusTag(status),
     },
     {
       title: '退出码',
       dataIndex: 'exit_code',
       key: 'exit_code',
-      width: 100,
-      render: (code: number | undefined) => (code !== undefined ? code : '-'),
+      width: 80,
+      align: 'center' as const,
+      render: (code: number | undefined) => (
+        code !== undefined ? (
+          <Tag color={code === 0 ? 'success' : 'error'}>{code}</Tag>
+        ) : '-'
+      ),
     },
     {
       title: '执行时长',
       dataIndex: 'duration_seconds',
       key: 'duration_seconds',
-      width: 120,
-      render: (duration: number | undefined) =>
-        duration !== undefined ? `${duration.toFixed(2)}s` : '-',
+      width: 100,
+      align: 'right' as const,
+      render: (duration: number | null | undefined) =>
+        duration != null ? `${duration.toFixed(2)}s` : '-',
     },
     {
       title: '开始时间',
       dataIndex: 'started_at',
       key: 'started_at',
-      width: 180,
+      width: 160,
       render: (time: string | undefined) =>
-        time ? new Date(time).toLocaleString() : '-',
+        time ? new Date(time).toLocaleString('zh-CN') : '-',
     },
     {
       title: '完成时间',
       dataIndex: 'completed_at',
       key: 'completed_at',
-      width: 180,
+      width: 160,
       render: (time: string | undefined) =>
-        time ? new Date(time).toLocaleString() : '-',
+        time ? new Date(time).toLocaleString('zh-CN') : '-',
     },
     {
       title: '操作',
       key: 'action',
-      width: 150,
+      width: 160,
+      fixed: 'right' as const,
       render: (_: any, record: ExecutionResponse) => (
         <Space size="small">
           <Button
-            type="link"
+            type="primary"
             size="small"
             icon={<EyeOutlined />}
             onClick={() => handleViewLogs(record)}
@@ -208,64 +219,88 @@ export default function ExecutionManagementPage() {
   ];
 
   return (
-    <div>
-      <Card>
-        <Space style={{ marginBottom: 16 }} wrap>
-          <Select
-            placeholder="选择脚本"
-            style={{ width: 200 }}
-            allowClear
-            onChange={(value) => {
-              setScriptFilter(value);
-              setPage(1);
-            }}
-          >
-            {scripts.map((script) => (
-              <Select.Option key={script.id} value={script.id}>
-                {script.name}
-              </Select.Option>
-            ))}
-          </Select>
+    <div style={{ maxWidth: '100%' }}>
+      <Card
+        variant="borderless"
+        style={{
+          borderRadius: '12px',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.06)'
+        }}
+      >
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 20,
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ fontSize: '18px', fontWeight: 600, color: '#262626' }}>
+            ▶️ 执行管理
+          </div>
+          <Space size="middle" wrap>
+            <Select
+              placeholder="选择脚本"
+              style={{ width: 200, borderRadius: '6px' }}
+              allowClear
+              onChange={(value) => {
+                setScriptFilter(value);
+                setPage(1);
+              }}
+            >
+              {scripts.map((script) => (
+                <Select.Option key={script.id} value={script.id}>
+                  {script.name}
+                </Select.Option>
+              ))}
+            </Select>
 
-          <Select
-            placeholder="选择状态"
-            style={{ width: 150 }}
-            allowClear
-            onChange={(value) => {
-              setStatusFilter(value);
-              setPage(1);
-            }}
-          >
-            <Select.Option value="pending">等待中</Select.Option>
-            <Select.Option value="running">执行中</Select.Option>
-            <Select.Option value="completed">已完成</Select.Option>
-            <Select.Option value="failed">失败</Select.Option>
-            <Select.Option value="stopped">已停止</Select.Option>
-          </Select>
+            <Select
+              placeholder="选择状态"
+              style={{ width: 150, borderRadius: '6px' }}
+              allowClear
+              onChange={(value) => {
+                setStatusFilter(value);
+                setPage(1);
+              }}
+            >
+              <Select.Option value="pending">等待中</Select.Option>
+              <Select.Option value="running">执行中</Select.Option>
+              <Select.Option value="completed">已完成</Select.Option>
+              <Select.Option value="failed">失败</Select.Option>
+              <Select.Option value="stopped">已停止</Select.Option>
+            </Select>
 
-          <Select
-            placeholder="快速执行脚本"
-            style={{ width: 200 }}
-            onChange={(value) => handleExecute(value)}
-            value={undefined}
-          >
-            {scripts.map((script) => (
-              <Select.Option key={script.id} value={script.id}>
-                <PlayCircleOutlined /> {script.name}
-              </Select.Option>
-            ))}
-          </Select>
+            <Select
+              placeholder="快速执行脚本"
+              style={{ width: 200, borderRadius: '6px' }}
+              onChange={(value) => handleExecute(value)}
+              value={undefined}
+            >
+              {scripts.map((script) => (
+                <Select.Option key={script.id} value={script.id}>
+                  <PlayCircleOutlined /> {script.name}
+                </Select.Option>
+              ))}
+            </Select>
 
-          <Button icon={<ReloadOutlined />} onClick={loadExecutions}>
-            刷新
-          </Button>
-        </Space>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={loadExecutions}
+              style={{ borderRadius: '6px', height: '36px' }}
+            >
+              刷新
+            </Button>
+          </Space>
+        </div>
 
         <Table
           columns={columns}
           dataSource={executions}
           rowKey="id"
           loading={loading}
+          scroll={{ x: 1200 }}
+          style={{ marginTop: 16 }}
           pagination={{
             current: page,
             pageSize: pageSize,
@@ -290,22 +325,23 @@ export default function ExecutionManagementPage() {
           setLogs('');
         }}
         footer={[
-          <Button key="close" onClick={() => setLogModalVisible(false)}>
+          <Button key="close" onClick={() => setLogModalVisible(false)} type="primary">
             关闭
           </Button>,
         ]}
-        width={900}
+        width={1000}
       >
         <pre
           style={{
             background: '#1e1e1e',
             color: '#d4d4d4',
-            padding: 16,
-            borderRadius: 4,
+            padding: 20,
+            borderRadius: 8,
             maxHeight: 500,
             overflow: 'auto',
-            fontFamily: 'Consolas, Monaco, monospace',
+            fontFamily: 'Consolas, Monaco, "Courier New", monospace',
             fontSize: 13,
+            lineHeight: 1.6
           }}
         >
           {logs}
