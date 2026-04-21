@@ -162,3 +162,96 @@ func (r *ScriptRepository) Count(ctx context.Context, language string) (int, err
 	}
 	return count, nil
 }
+
+// ListAll retrieves all scripts without pagination
+func (r *ScriptRepository) ListAll(ctx context.Context) ([]*models.TestScript, error) {
+	query := `
+		SELECT id, name, description, language, file_path, file_size, file_hash, tags, created_by, created_at, updated_at
+		FROM test_scripts
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all scripts: %w", err)
+	}
+	defer rows.Close()
+
+	var scripts []*models.TestScript
+	for rows.Next() {
+		script := &models.TestScript{}
+		err := rows.Scan(
+			&script.ID, &script.Name, &script.Description, &script.Language,
+			&script.FilePath, &script.FileSize, &script.FileHash, &script.Tags,
+			&script.CreatedBy, &script.CreatedAt, &script.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan script: %w", err)
+		}
+		scripts = append(scripts, script)
+	}
+
+	return scripts, nil
+}
+
+// DeleteByIDs deletes multiple scripts by IDs
+func (r *ScriptRepository) DeleteByIDs(ctx context.Context, ids []int) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	query := `DELETE FROM test_scripts WHERE id IN (`
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		if i > 0 {
+			query += ","
+		}
+		query += "?"
+		args[i] = id
+	}
+	query += ")"
+	_, err := r.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to delete scripts: %w", err)
+	}
+	return nil
+}
+
+// ListByIDs retrieves scripts by IDs
+func (r *ScriptRepository) ListByIDs(ctx context.Context, ids []int) ([]*models.TestScript, error) {
+	if len(ids) == 0 {
+		return []*models.TestScript{}, nil
+	}
+	query := `
+		SELECT id, name, description, language, file_path, file_size, file_hash, tags, created_by, created_at, updated_at
+		FROM test_scripts
+		WHERE id IN (`
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		if i > 0 {
+			query += ","
+		}
+		query += "?"
+		args[i] = id
+	}
+	query += ")"
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list scripts by ids: %w", err)
+	}
+	defer rows.Close()
+
+	var scripts []*models.TestScript
+	for rows.Next() {
+		script := &models.TestScript{}
+		err := rows.Scan(
+			&script.ID, &script.Name, &script.Description, &script.Language,
+			&script.FilePath, &script.FileSize, &script.FileHash, &script.Tags,
+			&script.CreatedBy, &script.CreatedAt, &script.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan script: %w", err)
+		}
+		scripts = append(scripts, script)
+	}
+
+	return scripts, nil
+}

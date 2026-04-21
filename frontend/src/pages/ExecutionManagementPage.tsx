@@ -15,6 +15,7 @@ import {
   StopOutlined,
   EyeOutlined,
   ReloadOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { apiService, type ExecutionResponse, type ScriptResponse } from '../services/api';
 
@@ -89,6 +90,16 @@ export default function ExecutionManagementPage() {
       loadExecutions();
     } catch (error: any) {
       message.error(error.response?.data?.message || '停止执行失败');
+    }
+  };
+
+  const handleDelete = async (executionId: number) => {
+    try {
+      await apiService.deleteExecution(executionId);
+      message.success('执行记录已删除');
+      loadExecutions();
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '删除执行记录失败');
     }
   };
 
@@ -189,7 +200,7 @@ export default function ExecutionManagementPage() {
     {
       title: '操作',
       key: 'action',
-      width: 160,
+      width: 200,
       fixed: 'right' as const,
       render: (_: any, record: ExecutionResponse) => (
         <Space size="small">
@@ -213,6 +224,24 @@ export default function ExecutionManagementPage() {
               </Button>
             </Popconfirm>
           )}
+          <Button
+            type="link"
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => {
+              Modal.confirm({
+                title: '确认删除',
+                content: `确定要删除执行记录 "${record.script_name}" 吗？删除后无法恢复。`,
+                okText: '确认',
+                cancelText: '取消',
+                okButtonProps: { danger: true },
+                onOk: () => handleDelete(record.id),
+              });
+            }}
+          >
+            删除
+          </Button>
         </Space>
       ),
     },

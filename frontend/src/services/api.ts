@@ -174,6 +174,27 @@ class ApiService {
     return response.data;
   }
 
+  async batchExecuteAll(): Promise<ApiResponse<{
+    total: number;
+    succeeded: number;
+    failed: number;
+    executions?: ExecutionResponse[];
+    failed_items?: { script_id: number; error: string }[];
+  }>> {
+    const response = await this.client.post('/api/v1/executions/batch-all', {});
+    return response.data;
+  }
+
+  async batchDeleteScripts(scriptIds: number[]): Promise<ApiResponse<{
+    message: string;
+    deleted_count: number;
+  }>> {
+    const response = await this.client.post('/api/v1/scripts/batch-delete', {
+      script_ids: scriptIds,
+    });
+    return response.data;
+  }
+
   async createExecution(scriptId: number): Promise<ApiResponse<ExecutionResponse>> {
     const response = await this.client.post<ApiResponse<ExecutionResponse>>('/api/v1/executions', {
       script_id: scriptId,
@@ -203,6 +224,11 @@ class ApiService {
 
   async stopExecution(executionId: number): Promise<ApiResponse<null>> {
     const response = await this.client.post<ApiResponse<null>>(`/api/v1/executions/${executionId}/stop`);
+    return response.data;
+  }
+
+  async deleteExecution(executionId: number): Promise<ApiResponse<null>> {
+    const response = await this.client.delete<ApiResponse<null>>(`/api/v1/executions/${executionId}`);
     return response.data;
   }
 

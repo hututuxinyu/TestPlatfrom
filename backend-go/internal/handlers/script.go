@@ -373,3 +373,46 @@ func (h *ScriptHandler) Delete(c *gin.Context) {
 
 	SuccessResponse(c, gin.H{"message": "Script deleted successfully"})
 }
+
+type BatchDeleteRequest struct {
+	ScriptIDs []int `json:"script_ids" binding:"required"`
+}
+
+// BatchDelete handles batch deletion of scripts
+func (h *ScriptHandler) BatchDelete(c *gin.Context) {
+	var req BatchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	if len(req.ScriptIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "script_ids cannot be empty"})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Get scripts to delete files
+	scripts, err := h.scriptRepo.ListByIDs(ctx, req.ScriptIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get scripts"})
+		return
+	}
+
+	// Delete from database
+	if err := h.scriptRepo.DeleteByIDs(ctx, req.ScriptIDs); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete scripts"})
+		return
+	}
+
+	// Clean up files
+	for _, script := range scripts {
+		os.Remove(script.FilePath)
+	}
+
+	SuccessResponse(c, gin.H{
+		"message":       fmt.Sprintf("Deleted %d scripts successfully", len(req.ScriptIDs)),
+		"deleted_count": len(req.ScriptIDs),
+	})
+}

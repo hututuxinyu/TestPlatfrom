@@ -55,11 +55,14 @@ func (s *Server) SetupRoutes(db *sql.DB, exec *executor.Executor) {
 			protected.GET("/scripts/:id", scriptHandler.Get)
 			protected.PUT("/scripts/:id", scriptHandler.Update)
 			protected.DELETE("/scripts/:id", scriptHandler.Delete)
+			protected.POST("/scripts/batch-delete", scriptHandler.BatchDelete)
 
 			// Execution routes
 			protected.POST("/executions", executionHandler.Start)
 			protected.POST("/executions/batch", executionHandler.BatchStart)
+			protected.POST("/executions/batch-all", executionHandler.BatchExecuteAll)
 			protected.GET("/executions", executionHandler.List)
+			protected.GET("/executions/batch-all", executionHandler.BatchExecuteAll)
 			protected.GET("/executions/:id", executionHandler.Get)
 			protected.GET("/executions/:id/logs", executionHandler.GetLogs)
 			protected.DELETE("/executions/:id", executionHandler.Delete)

@@ -41,6 +41,10 @@ export default function ScriptManagementPage() {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploadForm] = Form.useForm();
   const [editForm] = Form.useForm();
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [batchDeleteModalVisible, setBatchDeleteModalVisible] = useState(false);
+  const [batchDeleteConfirmInput, setBatchDeleteConfirmInput] = useState('');
+  const [batchExecuting, setBatchExecuting] = useState(false);
 
   const loadScripts = async () => {
     setLoading(true);
@@ -64,6 +68,65 @@ export default function ScriptManagementPage() {
   useEffect(() => {
     loadScripts();
   }, [page, pageSize]);
+
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: (keys: React.Key[]) => setSelectedRowKeys(keys),
+  };
+
+  const handleBatchExecute = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('请先选择要执行的脚本');
+      return;
+    }
+    setBatchExecuting(true);
+    try {
+      const response = await apiService.batchExecuteAll();
+      if (response.code === 0 && response.data) {
+        const { total, succeeded, failed } = response.data;
+        message.success(`批量执行完成: 成功 ${succeeded}/${total}`);
+        if (failed > 0) {
+          message.warning(`${failed} 个脚本执行失败`);
+        }
+        setSelectedRowKeys([]);
+        setTimeout(() => {
+          window.location.href = '/executions';
+        }, 1500);
+      }
+    } catch (error: any) {
+      message.error(error.response?.data?.error || '批量执行失败');
+    } finally {
+      setBatchExecuting(false);
+    }
+  };
+
+  const handleBatchDeleteClick = () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('请先选择要删除的脚本');
+      return;
+    }
+    setBatchDeleteModalVisible(true);
+    setBatchDeleteConfirmInput('');
+  };
+
+  const handleBatchDelete = async () => {
+    if (batchDeleteConfirmInput !== 'delete') {
+      message.error('请输入 "delete" 确认删除');
+      return;
+    }
+    try {
+      const response = await apiService.batchDeleteScripts(selectedRowKeys as number[]);
+      if (response.code === 0 && response.data) {
+        message.success(response.data.message);
+        setBatchDeleteModalVisible(false);
+        setBatchDeleteConfirmInput('');
+        setSelectedRowKeys([]);
+        loadScripts();
+      }
+    } catch (error: any) {
+      message.error(error.response?.data?.error || '批量删除失败');
+    }
+  };
 
   const handleUpload = async (values: any) => {
     if (fileList.length === 0) {
@@ -312,6 +375,21 @@ export default function ScriptManagementPage() {
             />
             <Button
               type="primary"
+              icon={<PlayCircleOutlined />}
+              onClick={handleBatchExecute}
+              loading={batchExecuting}
+              disabled={scripts.length === 0}
+              style={{
+                background: 'linear-gradient(135deg, #52c41a 0%, #237804 100%)',
+                border: 'none',
+                borderRadius: '6px',
+                height: '36px'
+              }}
+            >
+              一键执行全部
+            </Button>
+            <Button
+              type="primary"
               icon={<UploadOutlined />}
               onClick={() => setUploadModalVisible(true)}
               style={{
@@ -322,6 +400,15 @@ export default function ScriptManagementPage() {
               }}
             >
               上传脚本
+            </Button>
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              onClick={handleBatchDeleteClick}
+              disabled={selectedRowKeys.length === 0}
+              style={{ borderRadius: '6px', height: '36px' }}
+            >
+              批量删除{selectedRowKeys.length > 0 ? ` (${selectedRowKeys.length})` : ''}
             </Button>
             <Button
               icon={<ReloadOutlined />}
@@ -337,6 +424,7 @@ export default function ScriptManagementPage() {
           columns={columns}
           dataSource={scripts}
           rowKey="id"
+          rowSelection={rowSelection}
           loading={loading}
           scroll={{ x: 1400 }}
           style={{ marginTop: 16 }}
@@ -467,6 +555,34 @@ export default function ScriptManagementPage() {
         >
           {scriptContent}
         </pre>
+      </Modal>
+
+      {/* 批量删除确认模态框 */}
+      <Modal
+        title="批量删除脚本"
+        open={batchDeleteModalVisible}
+        onCancel={() => {
+          setBatchDeleteModalVisible(false);
+          setBatchDeleteConfirmInput('');
+        }}
+        onOk={handleBatchDelete}
+        okText="确认删除"
+        cancelText="取消"
+        okButtonProps={{ danger: true, disabled: batchDeleteConfirmInput !== 'delete' }}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ color: '#ff4d4f', fontWeight: 500 }}>
+            警告：即将删除 {selectedRowKeys.length} 个脚本，此操作不可恢复！
+          </p>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <p>请在下方输入 <strong>delete</strong> 确认删除：</p>
+          <Input
+            value={batchDeleteConfirmInput}
+            onChange={(e) => setBatchDeleteConfirmInput(e.target.value)}
+            placeholder="请输入 delete"
+          />
+        </div>
       </Modal>
     </div>
   );
