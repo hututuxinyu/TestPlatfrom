@@ -2,7 +2,6 @@ import axios, { type AxiosInstance } from 'axios';
 import type { ApiResponse, LoginRequest, LoginResponse, UserInfo } from '../types/api';
 
 export interface ScriptUploadRequest {
-  name: string;
   description?: string;
   language?: string;
   tags?: string;
@@ -130,7 +129,6 @@ class ApiService {
   async uploadScript(data: ScriptUploadRequest): Promise<ApiResponse<ScriptResponse>> {
     const formData = new FormData();
     formData.append('file', data.file);
-    formData.append('name', data.name);
     if (data.description) formData.append('description', data.description);
     if (data.language) formData.append('language', data.language);
     if (data.tags) formData.append('tags', data.tags);

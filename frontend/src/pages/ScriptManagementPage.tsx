@@ -77,12 +77,19 @@ export default function ScriptManagementPage() {
       return;
     }
 
+    // Auto-detect language from file extension
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const languageMap: Record<string, string> = {
+      py: 'python',
+      sh: 'shell',
+      js: 'javascript',
+    };
+    const language = languageMap[ext || ''] || 'python';
+
     try {
       await apiService.uploadScript({
-        name: values.name,
-        description: values.description,
-        language: values.language,
-        tags: values.tags,
+        language,
+        tags: values.tags ? values.tags.join(',') : undefined,
         file,
       });
       message.success('上传成功');
@@ -362,35 +369,6 @@ export default function ScriptManagementPage() {
         cancelText="取消"
       >
         <Form form={uploadForm} layout="vertical" onFinish={handleUpload}>
-          <Form.Item
-            name="name"
-            label="脚本名称"
-            rules={[{ required: true, message: '请输入脚本名称' }]}
-          >
-            <Input placeholder="例如：IMSI验证测试" />
-          </Form.Item>
-
-          <Form.Item name="description" label="描述">
-            <TextArea rows={3} placeholder="脚本功能描述" />
-          </Form.Item>
-
-          <Form.Item
-            name="language"
-            label="语言"
-            initialValue="python"
-            rules={[{ required: true }]}
-          >
-            <Select>
-              <Select.Option value="python">Python</Select.Option>
-              <Select.Option value="shell">Shell</Select.Option>
-              <Select.Option value="javascript">JavaScript</Select.Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item name="tags" label="标签">
-            <Input placeholder="多个标签用逗号分隔，例如：IMSI,功能测试" />
-          </Form.Item>
-
           <Form.Item label="脚本文件" required>
             <Upload
               fileList={fileList}
@@ -410,8 +388,17 @@ export default function ScriptManagementPage() {
               <Button icon={<UploadOutlined />}>选择文件</Button>
             </Upload>
             <div style={{ marginTop: 8, color: '#999', fontSize: 12 }}>
-              支持 .py, .sh, .js 文件，最大 10MB
+              支持 .py, .sh, .js 文件及 ZIP 打包批量上传，最大 10MB
             </div>
+          </Form.Item>
+
+          <Form.Item name="tags" label="标签">
+            <Select mode="tags" placeholder="选择或输入标签" style={{ width: '100%' }}>
+              <Select.Option value="GIDS">GIDS</Select.Option>
+              <Select.Option value="BGW">BGW</Select.Option>
+              <Select.Option value="MediaCache">MediaCache</Select.Option>
+              <Select.Option value="E2E">E2E</Select.Option>
+            </Select>
           </Form.Item>
         </Form>
       </Modal>

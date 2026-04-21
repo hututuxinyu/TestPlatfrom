@@ -32,9 +32,8 @@ func NewScriptHandler(scriptRepo *repository.ScriptRepository, cfg *config.Confi
 }
 
 type UploadScriptRequest struct {
-	Name        string `form:"name" binding:"required"`
 	Description string `form:"description"`
-	Language    string `form:"language" binding:"required"`
+	Language    string `form:"language"`
 	Tags        string `form:"tags"`
 }
 
@@ -68,11 +67,23 @@ func (h *ScriptHandler) Upload(c *gin.Context) {
 }
 
 func (h *ScriptHandler) uploadSingleFile(c *gin.Context, file *multipart.FileHeader, req *UploadScriptRequest, userID int) {
-	// Validate language
-	validLanguages := map[string]bool{"python": true, "shell": true, "javascript": true}
-	if !validLanguages[req.Language] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid language"})
-		return
+	// Auto-detect language from file extension if not provided
+	language := req.Language
+	if language == "" {
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		extMap := map[string]string{".py": "python", ".sh": "shell", ".js": "javascript"}
+		language = extMap[ext]
+		if language == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported file type"})
+			return
+		}
+	} else {
+		// Validate language
+		validLanguages := map[string]bool{"python": true, "shell": true, "javascript": true}
+		if !validLanguages[language] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid language"})
+			return
+		}
 	}
 
 	// Open uploaded file
@@ -109,11 +120,14 @@ func (h *ScriptHandler) uploadSingleFile(c *gin.Context, file *multipart.FileHea
 		return
 	}
 
+	// Extract name from filename (remove extension)
+	name := strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))
+
 	// Create script record
 	script := &models.TestScript{
-		Name:        req.Name,
+		Name:        name,
 		Description: req.Description,
-		Language:    req.Language,
+		Language:    language,
 		FilePath:    filePath,
 		FileSize:    file.Size,
 		FileHash:    fileHash,
@@ -210,11 +224,8 @@ func (h *ScriptHandler) handleZipUpload(c *gin.Context, file *multipart.FileHead
 			continue
 		}
 
-		// Determine name and description
-		name := filepath.Base(zipFile.Name)
-		if req.Name != "" {
-			name = fmt.Sprintf("%s - %s", req.Name, name)
-		}
+		// Extract name from filename (remove extension)
+		name := strings.TrimSuffix(filepath.Base(zipFile.Name), filepath.Ext(zipFile.Name))
 		description := req.Description
 		if description == "" {
 			description = fmt.Sprintf("Extracted from %s", file.Filename)
