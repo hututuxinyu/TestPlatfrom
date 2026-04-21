@@ -55,7 +55,7 @@ export default function ScriptManagementPage() {
         keyword: keyword || undefined,
       });
       if (response.code === 0 && response.data) {
-        setScripts(response.data.items);
+        setScripts(response.data.items || []);
         setTotal(response.data.total);
       }
     } catch (error: any) {
