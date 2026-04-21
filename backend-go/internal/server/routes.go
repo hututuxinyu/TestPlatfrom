@@ -52,6 +52,7 @@ func (s *Server) SetupRoutes(db *sql.DB, exec *executor.Executor) {
 			protected.POST("/scripts", scriptHandler.Upload)
 			protected.POST("/scripts/upload", scriptHandler.Upload)
 			protected.GET("/scripts", scriptHandler.List)
+			protected.GET("/scripts/:id/content", scriptHandler.GetContent)
 			protected.GET("/scripts/:id", scriptHandler.Get)
 			protected.PUT("/scripts/:id", scriptHandler.Update)
 			protected.DELETE("/scripts/:id", scriptHandler.Delete)

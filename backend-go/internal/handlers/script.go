@@ -315,6 +315,29 @@ func (h *ScriptHandler) Get(c *gin.Context) {
 	SuccessResponse(c, script)
 }
 
+// GetContent handles getting script file content
+func (h *ScriptHandler) GetContent(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid script ID"})
+		return
+	}
+
+	script, err := h.scriptRepo.GetByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Script not found"})
+		return
+	}
+
+	content, err := os.ReadFile(script.FilePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read script file"})
+		return
+	}
+
+	SuccessResponse(c, gin.H{"content": string(content)})
+}
+
 // Update handles updating a script
 func (h *ScriptHandler) Update(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
