@@ -54,7 +54,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Verify password
-	if !auth.CheckPassword(req.Password, user.PasswordHash) {
+	if !auth.CheckPassword(req.Password, user.Password) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials", "debug": "password mismatch"})
 		return
 	}

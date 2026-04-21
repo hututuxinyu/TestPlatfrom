@@ -1,181 +1,101 @@
 # Test Platform Backend (Golang)
 
-A high-performance test execution platform backend built with Golang, Gin, and PostgreSQL.
+云手机测试平台后端服务。
 
-## Features
+## 技术栈
 
-- **High Concurrency**: Support for 100+ concurrent test script executions using goroutines
-- **Multiple Languages**: Execute Python, Shell, and JavaScript test scripts
-- **Dual Logging**: Logs stored in both PostgreSQL database and file system
-- **JWT Authentication**: Secure API endpoints with JWT tokens
-- **RESTful API**: Clean and consistent API design
-- **Database Migrations**: Automated schema management with golang-migrate
+- **语言**: Go 1.21+
+- **Web 框架**: Gin
+- **数据库**: MySQL 8.0
+- **认证**: JWT
+- **配置**: Viper
 
-## Tech Stack
+## 快速开始
 
-- **Language**: Go 1.21+
-- **Web Framework**: Gin
-- **Database**: PostgreSQL 14+
-- **Database Driver**: pgx/v5 (pure Go, no CGO)
-- **Authentication**: JWT (golang-jwt/v5)
-- **Configuration**: Viper
-- **Migrations**: golang-migrate
+### 1. 安装依赖
 
-## Prerequisites
-
-- Go 1.21 or higher
-- PostgreSQL 14 or higher
-- Python 3.x (for Python test scripts)
-- Node.js (for JavaScript test scripts)
-- Bash (for shell test scripts)
-
-## Installation
-
-1. Clone the repository
-2. Install dependencies:
 ```bash
 go mod download
 ```
 
-3. Copy `.env.example` to `.env` and configure:
-```bash
-cp .env.example .env
-```
+### 2. 配置环境
 
-4. Start PostgreSQL (using Docker):
-```bash
-docker-compose up -d postgres
-```
-
-5. Run the server:
-```bash
-go run cmd/server/main.go
-```
-
-## Configuration
-
-Environment variables (`.env` file):
+编辑 `.env` 文件：
 
 ```env
-# Server
 SERVER_PORT=8011
-
-# Database
 DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=postgres
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=1234
 DB_NAME=testplatform
-DB_MAX_CONNS=25
-DB_MIN_CONNS=5
-
-# JWT
-JWT_SECRET=your-secret-key-change-in-production
+JWT_SECRET=your-secret-key
 JWT_EXPIRATION=24h
-
-# Executor
-MAX_CONCURRENT_EXECUTIONS=100
-DEFAULT_TIMEOUT=3600s
-UPLOAD_DIR=data/uploads
-LOG_DIR=logs
-
-# Logging
-LOG_LEVEL=info
-LOG_FORMAT=json
 ```
 
-## API Endpoints
+### 3. 启动服务
 
-### Authentication
-- `POST /api/login` - User login
-- `POST /api/logout` - User logout
-
-### Scripts
-- `POST /api/scripts` - Upload test script
-- `GET /api/scripts` - List scripts
-- `GET /api/scripts/:id` - Get script details
-- `PUT /api/scripts/:id` - Update script
-- `DELETE /api/scripts/:id` - Delete script
-
-### Executions
-- `POST /api/executions` - Start execution
-- `GET /api/executions` - List executions
-- `GET /api/executions/:id` - Get execution details
-- `GET /api/executions/:id/logs` - Get execution logs
-- `DELETE /api/executions/:id` - Delete execution
-
-### Configuration
-- `GET /api/configs` - List configurations
-- `GET /api/configs/:key` - Get configuration
-- `POST /api/configs` - Set configuration
-- `DELETE /api/configs/:key` - Delete configuration
-
-### Health Check
-- `GET /health` - Health check
-- `GET /api/health` - Health check
-
-## Building
-
-Build the binary:
 ```bash
-go build -o server cmd/server/main.go
+go build -o server.exe cmd/server/main.go
+./server.exe
 ```
 
-Build Docker image:
-```bash
-docker build -t testplatform-backend .
-```
+## API 接口
 
-## Deployment
+### 认证
+- `POST /api/v1/auth/login` - 登录
+- `POST /api/v1/auth/logout` - 登出
 
-Using Docker Compose:
-```bash
-docker-compose up -d
-```
+### 脚本管理
+- `POST /api/v1/scripts/upload` - 上传脚本
+- `GET /api/v1/scripts` - 获取脚本列表
+- `GET /api/v1/scripts/:id` - 获取脚本详情
+- `PUT /api/v1/scripts/:id` - 更新脚本
+- `DELETE /api/v1/scripts/:id` - 删除脚本
 
-This will start both PostgreSQL and the backend service.
+### 执行管理
+- `POST /api/v1/executions` - 创建执行任务
+- `GET /api/v1/executions` - 获取执行列表
+- `GET /api/v1/executions/:id` - 获取执行详情
+- `GET /api/v1/executions/:id/logs` - 获取执行日志
+- `DELETE /api/v1/executions/:id` - 删除执行
 
-## Database Migrations
+### 配置管理
+- `GET /api/v1/configs` - 获取配置列表
+- `GET /api/v1/configs/:key` - 获取单个配置
+- `POST /api/v1/configs` - 设置配置
+- `DELETE /api/v1/configs/:key` - 删除配置
 
-Migrations are automatically run on startup. The migration files are embedded in the binary.
+### 健康检查
+- `GET /health`
+- `GET /api/health`
 
-Migration files are located in `migrations/`:
-- `000001_create_users_table.up.sql`
-- `000002_create_test_scripts_table.up.sql`
-- `000003_create_test_executions_table.up.sql`
-- `000004_create_execution_logs_table.up.sql`
-- `000005_create_global_configs_table.up.sql`
-
-## Default Credentials
-
-- Username: `admin`
-- Password: `admin123`
-
-**Important**: Change the default password in production!
-
-## Architecture
+## 项目结构
 
 ```
 backend-go/
-├── cmd/
-│   └── server/          # Application entry point
+├── cmd/server/           # 入口
 ├── internal/
-│   ├── auth/            # JWT and password handling
-│   ├── config/          # Configuration management
-│   ├── database/        # Database connection and migrations
-│   ├── executor/        # Test execution engine
-│   ├── handlers/        # HTTP request handlers
-│   ├── middleware/      # HTTP middleware
-│   ├── models/          # Data models
-│   ├── repository/      # Database repositories
-│   └── server/          # HTTP server setup
-├── migrations/          # Database migration files
-├── .env.example         # Example environment configuration
-├── docker-compose.yml   # Docker Compose configuration
-├── Dockerfile           # Docker image definition
-└── go.mod              # Go module definition
+│   ├── auth/             # 认证 (JWT)
+│   ├── config/           # 配置管理
+│   ├── database/         # 数据库连接
+│   ├── executor/         # 脚本执行器
+│   ├── handlers/         # HTTP 处理器
+│   ├── middleware/        # 中间件
+│   ├── models/           # 数据模型
+│   ├── repository/       # 数据访问层
+│   └── server/           # HTTP 服务器
+├── migrations/           # 数据库迁移
+├── .env                  # 环境配置
+├── docker-compose.yml    # Docker Compose
+└── Dockerfile
 ```
 
-## License
+## 数据库迁移
 
-MIT
+迁移在服务启动时自动执行。迁移文件位于 `migrations/` 目录。
+
+## 默认账号
+
+- 用户名: admin
+- 密码: admin123

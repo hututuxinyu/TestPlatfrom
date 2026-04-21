@@ -19,10 +19,10 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 // Create creates a new user
 func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 	query := `
-		INSERT INTO users (username, password_hash, email, is_active)
+		INSERT INTO users (username, password, email, is_active)
 		VALUES (?, ?, ?, ?)
 	`
-	result, err := r.db.ExecContext(ctx, query, user.Username, user.PasswordHash, user.Email, user.IsActive)
+	result, err := r.db.ExecContext(ctx, query, user.Username, user.Password, user.Email, user.IsActive)
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
 	}
@@ -46,13 +46,13 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 // GetByID retrieves a user by ID
 func (r *UserRepository) GetByID(ctx context.Context, id int) (*models.User, error) {
 	query := `
-		SELECT id, username, password_hash, email, is_active, created_at, updated_at
+		SELECT id, username, password, email, is_active, created_at, updated_at
 		FROM users
 		WHERE id = ?
 	`
 	user := &models.User{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&user.ID, &user.Username, &user.PasswordHash, &user.Email,
+		&user.ID, &user.Username, &user.Password, &user.Email,
 		&user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
@@ -64,13 +64,13 @@ func (r *UserRepository) GetByID(ctx context.Context, id int) (*models.User, err
 // GetByUsername retrieves a user by username
 func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*models.User, error) {
 	query := `
-		SELECT id, username, password_hash, email, is_active, created_at, updated_at
+		SELECT id, username, password, email, is_active, created_at, updated_at
 		FROM users
 		WHERE username = ?
 	`
 	user := &models.User{}
 	err := r.db.QueryRowContext(ctx, query, username).Scan(
-		&user.ID, &user.Username, &user.PasswordHash, &user.Email,
+		&user.ID, &user.Username, &user.Password, &user.Email,
 		&user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
@@ -104,7 +104,7 @@ func (r *UserRepository) Update(ctx context.Context, user *models.User) error {
 // List retrieves all users
 func (r *UserRepository) List(ctx context.Context) ([]*models.User, error) {
 	query := `
-		SELECT id, username, password_hash, email, is_active, created_at, updated_at
+		SELECT id, username, password, email, is_active, created_at, updated_at
 		FROM users
 		ORDER BY created_at DESC
 	`
@@ -118,7 +118,7 @@ func (r *UserRepository) List(ctx context.Context) ([]*models.User, error) {
 	for rows.Next() {
 		user := &models.User{}
 		err := rows.Scan(
-			&user.ID, &user.Username, &user.PasswordHash, &user.Email,
+			&user.ID, &user.Username, &user.Password, &user.Email,
 			&user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
