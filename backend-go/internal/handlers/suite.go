@@ -542,7 +542,8 @@ func (h *SuiteHandler) ExecuteSuite(c *gin.Context) {
 
 	// Create task record
 	task := &models.TestTask{
-		SuiteID:     suite.ID,
+		TaskType:    "suite_batch",
+		SuiteID:     &suite.ID,
 		SuiteName:   suite.Name,
 		Status:      "pending",
 		TotalCount:  len(scripts),

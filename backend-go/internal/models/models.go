@@ -38,7 +38,8 @@ type TestScript struct {
 
 type TestTask struct {
 	ID            int        `json:"id"`
-	SuiteID       int        `json:"suite_id"`
+	TaskType      string     `json:"task_type"`
+	SuiteID       *int       `json:"suite_id"`
 	SuiteName     string     `json:"suite_name"`
 	Status        string     `json:"status"`
 	TotalCount    int        `json:"total_count"`

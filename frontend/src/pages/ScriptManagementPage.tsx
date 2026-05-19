@@ -359,7 +359,7 @@ export default function ScriptManagementPage() {
 
           <Row gutter={[16, 16]}>
             {suites.map((suite) => (
-              <Col span={6} key={suite.id}>
+              <Col key={suite.id} style={{ width: '280px', flex: '0 0 280px' }}>
                 <div
                   style={{
                     background: 'linear-gradient(145deg, #f8f9fa 0%, #ececec 100%)',

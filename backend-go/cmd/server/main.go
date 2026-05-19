@@ -59,17 +59,13 @@ func main() {
 
 	logger.Info("Database connection established")
 
-	// Run migrations
-	databaseURL := fmt.Sprintf("mysql://%s:%s@tcp(%s:%d)/%s",
-		cfg.Database.User, cfg.Database.Password, cfg.Database.Host, cfg.Database.Port, cfg.Database.Database)
-	if err := database.RunMigrations(databaseURL); err != nil {
+	db := database.GetDB()
+
+	if err := database.RunMigrations(db); err != nil {
 		logger.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	logger.Info("Database migrations completed")
-
-	// Get database connection
-	db := database.GetDB()
+	logger.Info("Database schema initialized")
 
 	// Initialize repositories
 	executionRepo := repository.NewExecutionRepository(db)

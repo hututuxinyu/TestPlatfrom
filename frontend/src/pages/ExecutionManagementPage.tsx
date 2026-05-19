@@ -16,6 +16,8 @@ import {
   FileTextOutlined,
   DeleteOutlined,
   ReloadOutlined,
+  RocketOutlined,
+  FolderOutlined,
 } from '@ant-design/icons';
 import { apiService, type ExecutionResponse, type TaskResponse } from '../services/api';
 
@@ -128,7 +130,28 @@ export default function ExecutionManagementPage() {
       align: 'center' as const,
     },
     {
-      title: '测试套',
+      title: '类型',
+      dataIndex: 'task_type',
+      key: 'task_type',
+      width: 120,
+      align: 'center' as const,
+      render: (taskType: string, record: TaskResponse) => {
+        if (taskType === 'single_script') {
+          return (
+            <Space>
+              <Tag color="blue" icon={<RocketOutlined />}>独立执行</Tag>
+            </Space>
+          );
+        }
+        return (
+          <Space>
+            <Tag color="green" icon={<FolderOutlined />}>套件</Tag>
+          </Space>
+        );
+      },
+    },
+    {
+      title: '名称',
       dataIndex: 'suite_name',
       key: 'suite_name',
       width: 150,
@@ -332,7 +355,11 @@ export default function ExecutionManagementPage() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <Space size="large">
-                    <span>当前任务: <strong>{selectedTask.suite_name}</strong></span>
+                    <span>类型: {selectedTask.task_type === 'single_script' ? 
+                      <Tag color="blue" icon={<RocketOutlined />}>独立执行</Tag> : 
+                      <Tag color="green" icon={<FolderOutlined />}>套件</Tag>}
+                    </span>
+                    <span>名称: <strong>{selectedTask.suite_name}</strong></span>
                     <span>状态: {getStatusTag(selectedTask.status)}</span>
                     <span>成功: <strong style={{ color: '#52c41a' }}>{selectedTask.success_count}</strong></span>
                     <span>失败: <strong style={{ color: '#ff4d4f' }}>{selectedTask.failed_count}</strong></span>
@@ -366,7 +393,11 @@ export default function ExecutionManagementPage() {
             {selectedTask ? (
               <div style={{ padding: '16px 0' }}>
                 <div style={{ background: '#f5f5f5', padding: 24, borderRadius: 8 }}>
-                  <p><strong>测试套:</strong> {selectedTask.suite_name}</p>
+                  <p><strong>类型:</strong> {selectedTask.task_type === 'single_script' ? 
+                    <Tag color="blue" icon={<RocketOutlined />}>独立执行</Tag> : 
+                    <Tag color="green" icon={<FolderOutlined />}>套件执行</Tag>}
+                  </p>
+                  <p><strong>名称:</strong> {selectedTask.suite_name}</p>
                   <p><strong>状态:</strong> {getStatusTag(selectedTask.status)}</p>
                   <p><strong>进度:</strong> 成功 {selectedTask.success_count} / 失败 {selectedTask.failed_count} / 总计 {selectedTask.total_count}</p>
                   <p><strong>创建时间:</strong> {new Date(selectedTask.created_at).toLocaleString('zh-CN')}</p>

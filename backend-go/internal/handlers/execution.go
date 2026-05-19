@@ -15,6 +15,7 @@ type ExecutionHandler struct {
 	executionRepo    *repository.ExecutionRepository
 	executionLogRepo *repository.ExecutionLogRepository
 	scriptRepo       *repository.ScriptRepository
+	taskRepo         *repository.TaskRepository
 	executor         *executor.Executor
 }
 
@@ -22,12 +23,14 @@ func NewExecutionHandler(
 	executionRepo *repository.ExecutionRepository,
 	executionLogRepo *repository.ExecutionLogRepository,
 	scriptRepo *repository.ScriptRepository,
+	taskRepo *repository.TaskRepository,
 	exec *executor.Executor,
 ) *ExecutionHandler {
 	return &ExecutionHandler{
 		executionRepo:    executionRepo,
 		executionLogRepo: executionLogRepo,
 		scriptRepo:       scriptRepo,
+		taskRepo:         taskRepo,
 		executor:         exec,
 	}
 }
@@ -59,8 +62,26 @@ func (h *ExecutionHandler) Start(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	userIDInt := userID.(int)
 
+	// Create task record for single script execution
+	task := &models.TestTask{
+		TaskType:    "single_script",
+		SuiteID:     script.SuiteID,
+		SuiteName:   script.Name,
+		Status:      "pending",
+		TotalCount:  1,
+		SuccessCount: 0,
+		FailedCount: 0,
+		CreatedBy:   &userIDInt,
+	}
+
+	if err := h.taskRepo.Create(c.Request.Context(), task); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create task"})
+		return
+	}
+
 	// Create execution record
 	execution := &models.TestExecution{
+		TaskID:     &task.ID,
 		ScriptID:   script.ID,
 		ScriptUUID: script.UUID,
 		ScriptName: script.Name,
@@ -72,6 +93,9 @@ func (h *ExecutionHandler) Start(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create execution"})
 		return
 	}
+
+	// Update task status to running
+	h.taskRepo.UpdateStatus(context.Background(), task.ID, "running")
 
 	// Start execution in background
 	go h.executor.Execute(context.Background(), execution, script.FilePath, script.Language)

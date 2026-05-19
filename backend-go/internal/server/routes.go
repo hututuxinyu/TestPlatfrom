@@ -32,7 +32,7 @@ func (s *Server) SetupRoutes(db *sql.DB, exec *executor.Executor) {
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, s.config)
 	scriptHandler := handlers.NewScriptHandler(scriptRepo, s.config)
-	executionHandler := handlers.NewExecutionHandler(executionRepo, executionLogRepo, scriptRepo, exec)
+	executionHandler := handlers.NewExecutionHandler(executionRepo, executionLogRepo, scriptRepo, taskRepo, exec)
 	configHandler := handlers.NewConfigHandler(configRepo)
 	suiteHandler := handlers.NewSuiteHandler(suiteRepo, scriptRepo, taskRepo, executionRepo, exec, s.config)
 	taskHandler := handlers.NewTaskHandler(taskRepo, executionRepo, suiteRepo)

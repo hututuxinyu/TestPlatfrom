@@ -20,11 +20,11 @@ func NewTaskRepository(db *sql.DB) *TaskRepository {
 // Create creates a new test task
 func (r *TaskRepository) Create(ctx context.Context, task *models.TestTask) error {
 	query := `
-		INSERT INTO test_tasks (suite_id, suite_name, status, total_count, success_count, failed_count, created_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO test_tasks (task_type, suite_id, suite_name, status, total_count, success_count, failed_count, created_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	result, err := r.db.ExecContext(ctx, query,
-		task.SuiteID, task.SuiteName, task.Status, task.TotalCount,
+		task.TaskType, task.SuiteID, task.SuiteName, task.Status, task.TotalCount,
 		task.SuccessCount, task.FailedCount, task.CreatedBy,
 	)
 	if err != nil {
@@ -47,21 +47,57 @@ func (r *TaskRepository) Create(ctx context.Context, task *models.TestTask) erro
 	return nil
 }
 
+var nullIntScanner sql.NullInt64
+
+func scanNullInt(ptr **int, value interface{}) error {
+	switch v := value.(type) {
+	case sql.NullInt64:
+		if v.Valid {
+			val := int(v.Int64)
+			*ptr = &val
+		} else {
+			*ptr = nil
+		}
+	case *sql.NullInt64:
+		if v.Valid {
+			val := int(v.Int64)
+			*ptr = &val
+		} else {
+			*ptr = nil
+		}
+	case int:
+		val := v
+		*ptr = &val
+	case *int:
+		*ptr = v
+	case nil:
+		*ptr = nil
+	default:
+		return fmt.Errorf("cannot scan %T into **int", value)
+	}
+	return nil
+}
+
 // GetByID retrieves a task by ID
 func (r *TaskRepository) GetByID(ctx context.Context, id int) (*models.TestTask, error) {
 	query := `
-		SELECT id, suite_id, suite_name, status, total_count, success_count, failed_count, created_by, created_at, completed_at
+		SELECT id, task_type, suite_id, suite_name, status, total_count, success_count, failed_count, created_by, created_at, completed_at
 		FROM test_tasks
 		WHERE id = ?
 	`
 	task := &models.TestTask{}
+	var suiteID sql.NullInt64
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&task.ID, &task.SuiteID, &task.SuiteName, &task.Status,
+		&task.ID, &task.TaskType, &suiteID, &task.SuiteName, &task.Status,
 		&task.TotalCount, &task.SuccessCount, &task.FailedCount,
 		&task.CreatedBy, &task.CreatedAt, &task.CompletedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get task by id: %w", err)
+	}
+	if suiteID.Valid {
+		val := int(suiteID.Int64)
+		task.SuiteID = &val
 	}
 	return task, nil
 }
@@ -126,7 +162,7 @@ func (r *TaskRepository) Complete(ctx context.Context, id int, status string) er
 // List retrieves tasks with optional suite filter
 func (r *TaskRepository) List(ctx context.Context, suiteID int, limit, offset int) ([]*models.TestTask, error) {
 	query := `
-		SELECT id, suite_id, suite_name, status, total_count, success_count, failed_count, created_by, created_at, completed_at
+		SELECT id, task_type, suite_id, suite_name, status, total_count, success_count, failed_count, created_by, created_at, completed_at
 		FROM test_tasks
 		WHERE (? = 0 OR suite_id = ?)
 		ORDER BY created_at DESC
@@ -141,13 +177,18 @@ func (r *TaskRepository) List(ctx context.Context, suiteID int, limit, offset in
 	var tasks []*models.TestTask
 	for rows.Next() {
 		task := &models.TestTask{}
+		var suiteID sql.NullInt64
 		err := rows.Scan(
-			&task.ID, &task.SuiteID, &task.SuiteName, &task.Status,
+			&task.ID, &task.TaskType, &suiteID, &task.SuiteName, &task.Status,
 			&task.TotalCount, &task.SuccessCount, &task.FailedCount,
 			&task.CreatedBy, &task.CreatedAt, &task.CompletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
+		}
+		if suiteID.Valid {
+			val := int(suiteID.Int64)
+			task.SuiteID = &val
 		}
 		tasks = append(tasks, task)
 	}

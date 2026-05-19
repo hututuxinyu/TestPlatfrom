@@ -157,7 +157,7 @@ func (h *TaskHandler) Delete(c *gin.Context) {
 
 // CreateTaskRequest is used internally for creating tasks from suite execution
 type CreateTaskRequest struct {
-	SuiteID   int       `json:"suite_id"`
+	SuiteID   *int      `json:"suite_id"`
 	SuiteName string    `json:"suite_name"`
 	Scripts   []*models.TestScript
 	CreatedBy *int      `json:"created_by"`

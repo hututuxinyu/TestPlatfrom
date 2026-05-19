@@ -68,7 +68,8 @@ export interface SuiteDetailResponse {
 
 export interface TaskResponse {
   id: number;
-  suite_id: number;
+  task_type: string;
+  suite_id?: number;
   suite_name: string;
   status: string;
   total_count: number;
