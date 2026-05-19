@@ -35,6 +35,9 @@ yarn-error.log*
 backend-go/logs/*
 !backend-go/logs/
 
+# Runtime (PID 文件)
+run/
+
 # Database
 *.db
 *.db-journal
