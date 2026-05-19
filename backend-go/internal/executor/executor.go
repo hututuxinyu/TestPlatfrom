@@ -27,6 +27,7 @@ const (
 type Executor struct {
 	executionRepo    *repository.ExecutionRepository
 	executionLogRepo *repository.ExecutionLogRepository
+	taskRepo         *repository.TaskRepository
 	configRepo       *repository.ConfigRepository
 	semaphore        *semaphore.Weighted
 	logDir           string
@@ -39,6 +40,7 @@ type Executor struct {
 func NewExecutor(
 	executionRepo *repository.ExecutionRepository,
 	executionLogRepo *repository.ExecutionLogRepository,
+	taskRepo *repository.TaskRepository,
 	configRepo *repository.ConfigRepository,
 	maxConcurrent int,
 	logDir string,
@@ -47,6 +49,7 @@ func NewExecutor(
 	executor := &Executor{
 		executionRepo:    executionRepo,
 		executionLogRepo: executionLogRepo,
+		taskRepo:         taskRepo,
 		configRepo:       configRepo,
 		semaphore:        semaphore.NewWeighted(int64(maxConcurrent)),
 		logDir:           logDir,
@@ -377,4 +380,43 @@ func (e *Executor) finishExecution(ctx context.Context, execution *models.TestEx
 	}
 
 	e.executionRepo.Update(ctx, execution)
+
+	// Update task counts if this execution belongs to a task
+	if execution.TaskID != nil {
+		if exitCode == 0 {
+			e.taskRepo.IncrementSuccess(ctx, *execution.TaskID)
+		} else {
+			e.taskRepo.IncrementFailed(ctx, *execution.TaskID)
+		}
+
+		// Check if all executions for this task are complete
+		e.checkAndCompleteTask(ctx, *execution.TaskID)
+	}
+}
+
+// checkAndCompleteTask checks if all executions are done and marks task as completed
+func (e *Executor) checkAndCompleteTask(ctx context.Context, taskID int) {
+	task, err := e.taskRepo.GetByID(ctx, taskID)
+	if err != nil {
+		return
+	}
+
+	// Get all executions for this task
+	executions, err := e.executionRepo.ListByTaskID(ctx, taskID)
+	if err != nil {
+		return
+	}
+
+	// Count completed and failed executions
+	completedCount := 0
+	for _, exec := range executions {
+		if exec.Status == "completed" || exec.Status == "failed" {
+			completedCount++
+		}
+	}
+
+	// If all executions are done, mark task as completed
+	if completedCount >= task.TotalCount {
+		e.taskRepo.Complete(ctx, taskID, "completed")
+	}
 }

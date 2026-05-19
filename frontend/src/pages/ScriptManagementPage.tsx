@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Table,
   Button,
@@ -8,127 +9,95 @@ import {
   Form,
   Input,
   Upload,
-  Select,
   message,
   Popconfirm,
   Card,
+  Row,
+  Col,
 } from 'antd';
+import type { TableRowSelection } from 'antd/es/table/interface';
 import {
   UploadOutlined,
   DeleteOutlined,
-  EditOutlined,
   EyeOutlined,
   ReloadOutlined,
   PlayCircleOutlined,
+  ArrowLeftOutlined,
 } from '@ant-design/icons';
 import type { UploadFile } from 'antd';
-import { apiService, type ScriptResponse } from '../services/api';
-
-const { TextArea } = Input;
+import { apiService, type ScriptResponse, type SuiteSummary, type SuiteDetailResponse } from '../services/api';
 
 export default function ScriptManagementPage() {
-  const [scripts, setScripts] = useState<ScriptResponse[]>([]);
+  const params = useParams();
+  const navigate = useNavigate();
+  const suiteId = params.suiteId ? parseInt(params.suiteId) : null;
+
+  // Suite grid view state
+  const [suites, setSuites] = useState<SuiteSummary[]>([]);
   const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [keyword, setKeyword] = useState('');
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [uploadForm] = Form.useForm();
+
+  // Suite detail view state
+  const [suiteDetail, setSuiteDetail] = useState<SuiteDetailResponse | null>(null);
+  const [scripts, setScripts] = useState<ScriptResponse[]>([]);
+  const [scriptLoading, setScriptLoading] = useState(false);
+  const [uploadScriptModalVisible, setUploadScriptModalVisible] = useState(false);
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [currentScript, setCurrentScript] = useState<ScriptResponse | null>(null);
   const [scriptContent, setScriptContent] = useState('');
   const [fileList, setFileList] = useState<UploadFile[]>([]);
-  const [uploadForm] = Form.useForm();
-  const [editForm] = Form.useForm();
-  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-  const [batchDeleteModalVisible, setBatchDeleteModalVisible] = useState(false);
-  const [batchDeleteConfirmInput, setBatchDeleteConfirmInput] = useState('');
+  const [scriptUploadForm] = Form.useForm();
   const [batchExecuting, setBatchExecuting] = useState(false);
+  const [selectedScriptKeys, setSelectedScriptKeys] = useState<React.Key[]>([]);
 
-  const loadScripts = async () => {
+  // Load suites (grid view)
+  const loadSuites = async () => {
     setLoading(true);
     try {
-      const response = await apiService.listScripts({
-        page,
-        page_size: pageSize,
-        keyword: keyword || undefined,
-      });
+      const response = await apiService.listSuites();
       if (response.code === 0 && response.data) {
-        setScripts(response.data.items || []);
-        setTotal(response.data.total);
+        setSuites(response.data.items || []);
       }
     } catch (error: any) {
-      message.error('加载脚本列表失败');
+      message.error('加载测试套列表失败');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadScripts();
-  }, [page, pageSize]);
-
-  const rowSelection = {
-    selectedRowKeys,
-    onChange: (keys: React.Key[]) => setSelectedRowKeys(keys),
-  };
-
-  const handleBatchExecute = async () => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('请先选择要执行的脚本');
-      return;
-    }
-    setBatchExecuting(true);
+  // Load suite detail and scripts
+  const loadSuiteDetail = async () => {
+    if (!suiteId) return;
+    setScriptLoading(true);
     try {
-      const response = await apiService.batchExecuteAll();
-      if (response.code === 0 && response.data) {
-        const { total, succeeded, failed } = response.data;
-        message.success(`批量执行完成: 成功 ${succeeded}/${total}`);
-        if (failed > 0) {
-          message.warning(`${failed} 个脚本执行失败`);
-        }
-        setSelectedRowKeys([]);
-        setTimeout(() => {
-          window.location.href = '/executions';
-        }, 1500);
+      const [detailResponse, scriptsResponse] = await Promise.all([
+        apiService.getSuite(suiteId),
+        apiService.listSuiteScripts(suiteId),
+      ]);
+      if (detailResponse.code === 0 && detailResponse.data) {
+        setSuiteDetail(detailResponse.data);
+      }
+      if (scriptsResponse.code === 0 && scriptsResponse.data) {
+        setScripts(scriptsResponse.data.items || []);
       }
     } catch (error: any) {
-      message.error(error.response?.data?.error || '批量执行失败');
+      message.error('加载测试套详情失败');
     } finally {
-      setBatchExecuting(false);
+      setScriptLoading(false);
     }
   };
 
-  const handleBatchDeleteClick = () => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('请先选择要删除的脚本');
-      return;
+  useEffect(() => {
+    if (suiteId) {
+      loadSuiteDetail();
+    } else {
+      loadSuites();
     }
-    setBatchDeleteModalVisible(true);
-    setBatchDeleteConfirmInput('');
-  };
+  }, [suiteId]);
 
-  const handleBatchDelete = async () => {
-    if (batchDeleteConfirmInput !== 'delete') {
-      message.error('请输入 "delete" 确认删除');
-      return;
-    }
-    try {
-      const response = await apiService.batchDeleteScripts(selectedRowKeys as number[]);
-      if (response.code === 0 && response.data) {
-        message.success(response.data.message);
-        setBatchDeleteModalVisible(false);
-        setBatchDeleteConfirmInput('');
-        setSelectedRowKeys([]);
-        loadScripts();
-      }
-    } catch (error: any) {
-      message.error(error.response?.data?.error || '批量删除失败');
-    }
-  };
-
-  const handleUpload = async (values: any) => {
+  // Suite grid view handlers
+  const handleUploadSuite = async (values: { name: string }) => {
     if (fileList.length === 0) {
       message.error('请选择文件');
       return;
@@ -140,73 +109,137 @@ export default function ScriptManagementPage() {
       return;
     }
 
-    // Auto-detect language from file extension
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    const languageMap: Record<string, string> = {
-      py: 'python',
-      sh: 'shell',
-      js: 'javascript',
-    };
-    const language = languageMap[ext || ''] || 'python';
-
     try {
-      await apiService.uploadScript({
-        language,
-        tags: values.tags ? values.tags.join(',') : undefined,
-        file,
-      });
+      await apiService.createSuite(values.name, file);
       message.success('上传成功');
       setUploadModalVisible(false);
       uploadForm.resetFields();
       setFileList([]);
-      loadScripts();
+      loadSuites();
     } catch (error: any) {
       message.error(error.response?.data?.message || '上传失败');
     }
   };
 
-  const handleEdit = async (values: any) => {
-    if (!currentScript) return;
-
+  const handleDeleteSuite = async (suite: SuiteSummary) => {
     try {
-      await apiService.updateScript(currentScript.id, {
-        name: values.name,
-        description: values.description,
-        tags: values.tags ? values.tags.split(',').map((t: string) => t.trim()) : [],
-      });
-      message.success('更新成功');
-      setEditModalVisible(false);
-      setCurrentScript(null);
-      editForm.resetFields();
-      loadScripts();
-    } catch (error: any) {
-      message.error(error.response?.data?.message || '更新失败');
-    }
-  };
-
-  const handleDelete = async (scriptId: number) => {
-    try {
-      await apiService.deleteScript(scriptId);
+      await apiService.deleteSuite(suite.id);
       message.success('删除成功');
-      loadScripts();
+      loadSuites();
     } catch (error: any) {
       message.error(error.response?.data?.message || '删除失败');
     }
   };
 
-  const handleExecute = async (scriptId: number) => {
+  const handleExportSuite = async (suite: SuiteSummary) => {
+    try {
+      const blob = await apiService.exportSuite(suite.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${suite.name}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      message.success('导出成功');
+    } catch (error: any) {
+      message.error('导出失败');
+    }
+  };
+
+  const handlePreviewSuite = (suite: SuiteSummary) => {
+    navigate(`/scripts/${suite.id}`);
+  };
+
+  // Suite detail view handlers
+  const handleUploadScript = async () => {
+    if (fileList.length === 0) {
+      message.error('请选择文件');
+      return;
+    }
+
+    const file = fileList[0].originFileObj;
+    if (!file) {
+      message.error('文件对象无效');
+      return;
+    }
+
+    try {
+      await apiService.uploadScriptToSuite(suiteId!, file);
+      message.success('上传成功');
+      setUploadScriptModalVisible(false);
+      setFileList([]);
+      loadSuiteDetail();
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '上传失败');
+    }
+  };
+
+  const handleExecuteScript = async (scriptId: number) => {
     try {
       await apiService.createExecution(scriptId);
       message.success('执行任务已创建，请到执行管理页面查看');
       setTimeout(() => {
-        window.location.href = '/executions';
+        navigate('/executions');
       }, 1500);
     } catch (error: any) {
       message.error(error.response?.data?.message || '创建执行任务失败');
     }
   };
 
-  const handleView = async (script: ScriptResponse) => {
+  const handleBatchExecute = async () => {
+    if (scripts.length === 0) {
+      message.warning('没有可执行的脚本');
+      return;
+    }
+    setBatchExecuting(true);
+    try {
+      const response = await apiService.executeSuite(suiteId!);
+      if (response.code === 0 && response.data) {
+        const { total, succeeded, failed } = response.data;
+        message.success(`执行完成: 成功 ${succeeded}/${total}`);
+        if (failed > 0) {
+          message.warning(`${failed} 个脚本执行失败`);
+        }
+        setTimeout(() => {
+          navigate('/executions');
+        }, 1500);
+      }
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '执行失败');
+    } finally {
+      setBatchExecuting(false);
+    }
+  };
+
+  const handleDeleteScript = async (scriptId: number) => {
+    try {
+      await apiService.deleteScript(scriptId);
+      message.success('删除成功');
+      loadSuiteDetail();
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '删除失败');
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedScriptKeys.length === 0) {
+      message.warning('请先勾选要删除的脚本');
+      return;
+    }
+    try {
+      const ids = selectedScriptKeys.map((k) => Number(k));
+      await apiService.batchDeleteScripts(ids);
+      message.success(`成功删除 ${ids.length} 个脚本`);
+      setSelectedScriptKeys([]);
+      loadSuiteDetail();
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '批量删除失败');
+    }
+  };
+
+  const handleViewScript = async (script: ScriptResponse) => {
     setCurrentScript(script);
     setViewModalVisible(true);
     try {
@@ -219,18 +252,12 @@ export default function ScriptManagementPage() {
     }
   };
 
-  const handleEditClick = (script: ScriptResponse) => {
-    setCurrentScript(script);
-    const tagValue = Array.isArray(script.tags) ? script.tags.join(', ') : (script.tags || '');
-    editForm.setFieldsValue({
-      name: script.name,
-      description: script.description,
-      tags: tagValue,
-    });
-    setEditModalVisible(true);
+  const handleBackToSuites = () => {
+    navigate('/scripts');
   };
 
-  const columns = [
+  // Script table columns (for suite detail view)
+  const scriptColumns = [
     {
       title: 'ID',
       dataIndex: 'id',
@@ -246,13 +273,6 @@ export default function ScriptManagementPage() {
       ellipsis: true,
     },
     {
-      title: '描述',
-      dataIndex: 'description',
-      key: 'description',
-      width: 250,
-      ellipsis: true,
-    },
-    {
       title: '语言',
       dataIndex: 'language',
       key: 'language',
@@ -265,41 +285,9 @@ export default function ScriptManagementPage() {
       ),
     },
     {
-      title: '标签',
-      dataIndex: 'tags',
-      key: 'tags',
-      width: 150,
-      render: (tags: string | string[]) => {
-        const tagArray = Array.isArray(tags) ? tags : (typeof tags === 'string' && tags ? tags.split(',').map(t => t.trim()).filter(t => t) : []);
-        if (tagArray.length === 0) return null;
-        return (
-          <>
-            {tagArray.map((tag) => (
-              <Tag key={tag} color="cyan">{tag}</Tag>
-            ))}
-          </>
-        );
-      },
-    },
-    {
-      title: '文件大小',
-      dataIndex: 'file_size',
-      key: 'file_size',
-      width: 100,
-      align: 'right' as const,
-      render: (size: number) => `${(size / 1024).toFixed(2)} KB`,
-    },
-    {
-      title: '创建时间',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 160,
-      render: (time: string) => new Date(time).toLocaleString('zh-CN'),
-    },
-    {
       title: '操作',
       key: 'action',
-      width: 260,
+      width: 200,
       fixed: 'right' as const,
       render: (_: any, record: ScriptResponse) => (
         <Space size="small">
@@ -307,7 +295,7 @@ export default function ScriptManagementPage() {
             type="primary"
             size="small"
             icon={<PlayCircleOutlined />}
-            onClick={() => handleExecute(record.id)}
+            onClick={() => handleExecuteScript(record.id)}
           >
             执行
           </Button>
@@ -315,21 +303,13 @@ export default function ScriptManagementPage() {
             type="default"
             size="small"
             icon={<EyeOutlined />}
-            onClick={() => handleView(record)}
+            onClick={() => handleViewScript(record)}
           >
             查看
           </Button>
-          <Button
-            type="default"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => handleEditClick(record)}
-          >
-            编辑
-          </Button>
           <Popconfirm
             title="确定删除此脚本吗？"
-            onConfirm={() => handleDelete(record.id)}
+            onConfirm={() => handleDeleteScript(record.id)}
             okText="确定"
             cancelText="取消"
           >
@@ -342,6 +322,220 @@ export default function ScriptManagementPage() {
     },
   ];
 
+  // Render Suite Grid View
+  if (!suiteId) {
+    return (
+      <div style={{ maxWidth: '100%' }}>
+        <Card
+          variant="borderless"
+          style={{
+            borderRadius: '12px',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.06)'
+          }}
+        >
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 20,
+          }}>
+            <div style={{ fontSize: '18px', fontWeight: 600, color: '#262626' }}>
+              脚本管理
+            </div>
+            <Button
+              type="primary"
+              icon={<UploadOutlined />}
+              onClick={() => setUploadModalVisible(true)}
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                borderRadius: '6px',
+                height: '36px'
+              }}
+            >
+              上传测试套 ZIP
+            </Button>
+          </div>
+
+          <Row gutter={[16, 16]}>
+            {suites.map((suite) => (
+              <Col span={6} key={suite.id}>
+                <div
+                  style={{
+                    background: 'linear-gradient(145deg, #f8f9fa 0%, #ececec 100%)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    border: '1px solid #e8e8e8',
+                    height: '100%',
+                    minHeight: '160px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                  onClick={() => handlePreviewSuite(suite)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.08)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontSize: '16px',
+                      fontWeight: 600,
+                      color: '#262626',
+                      marginBottom: '10px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {suite.name}
+                    </div>
+
+                    <div style={{
+                      display: 'flex',
+                      gap: '10px',
+                      marginBottom: '10px',
+                    }}>
+                      <div style={{
+                        background: '#e6f4ff',
+                        padding: '4px 10px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        color: '#1677ff',
+                        fontWeight: 500,
+                      }}>
+                        {suite.script_count} 个脚本
+                      </div>
+                      <div style={{
+                        background: '#f6ffed',
+                        padding: '4px 10px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        color: '#52c41a',
+                        fontWeight: 500,
+                      }}>
+                        {suite.total_lines} 行
+                      </div>
+                    </div>
+
+                    <div style={{
+                      color: '#999',
+                      fontSize: '12px',
+                    }}>
+                      上传于 {suite.latest_upload ? new Date(suite.latest_upload).toLocaleDateString('zh-CN') : '-'}
+                    </div>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '8px',
+                    borderTop: '1px solid #e0e0e0',
+                    paddingTop: '12px',
+                    marginTop: '12px',
+                  }}>
+                    <Button
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); handlePreviewSuite(suite); }}
+                      style={{ fontSize: '12px', height: '26px', background: '#e6f4ff', color: '#1677ff', border: '1px solid #91caff' }}
+                    >
+                      预览
+                    </Button>
+                    <Button
+                      size="small"
+                      type="primary"
+                      onClick={(e) => { e.stopPropagation(); handleExportSuite(suite); }}
+                      style={{ fontSize: '12px', height: '26px' }}
+                    >
+                      导出
+                    </Button>
+                    <Popconfirm
+                      title="确定删除此测试套吗？"
+                      description="删除前会先删除套内所有脚本"
+                      onConfirm={(e) => { e?.stopPropagation(); handleDeleteSuite(suite); }}
+                      okText="确定"
+                      cancelText="取消"
+                    >
+                      <Button
+                        size="small"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ fontSize: '12px', height: '26px', background: '#fff1f0', color: '#ff4d4f', border: '1px solid #ffccc7' }}
+                      >
+                        删除
+                      </Button>
+                    </Popconfirm>
+                  </div>
+                </div>
+              </Col>
+            ))}
+          </Row>
+
+          {suites.length === 0 && !loading && (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: '#999' }}>
+              暂无测试套，点击右上角上传
+            </div>
+          )}
+        </Card>
+
+        {/* Upload Suite Modal */}
+        <Modal
+          title="上传测试套"
+          open={uploadModalVisible}
+          onCancel={() => {
+            setUploadModalVisible(false);
+            uploadForm.resetFields();
+            setFileList([]);
+          }}
+          onOk={() => uploadForm.submit()}
+          width={600}
+          okText="确认上传"
+          cancelText="取消"
+        >
+          <Form form={uploadForm} layout="vertical" onFinish={handleUploadSuite}>
+            <Form.Item
+              name="name"
+              label="测试套名称"
+              rules={[{ required: true, message: '请输入测试套名称' }]}
+            >
+              <Input placeholder="输入测试套名称" />
+            </Form.Item>
+
+            <Form.Item label="选择文件 (ZIP)" required>
+              <Upload
+                fileList={fileList}
+                beforeUpload={(file) => {
+                  const uploadFile: UploadFile = {
+                    uid: file.uid || `${Date.now()}`,
+                    name: file.name,
+                    status: 'done',
+                    originFileObj: file,
+                  };
+                  setFileList([uploadFile]);
+                  return false;
+                }}
+                onRemove={() => setFileList([])}
+                maxCount={1}
+                accept=".zip"
+              >
+                <Button icon={<UploadOutlined />}>选择 ZIP 文件</Button>
+              </Upload>
+              <div style={{ marginTop: 8, color: '#999', fontSize: 12 }}>
+                支持 .zip 打包的测试脚本文件
+              </div>
+            </Form.Item>
+          </Form>
+        </Modal>
+      </div>
+    );
+  }
+
+  // Render Suite Detail View
   return (
     <div style={{ maxWidth: '100%' }}>
       <Card
@@ -359,20 +553,48 @@ export default function ScriptManagementPage() {
           flexWrap: 'wrap',
           gap: '12px'
         }}>
-          <div style={{ fontSize: '18px', fontWeight: 600, color: '#262626' }}>
-            📝 脚本管理
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Button
+              type="default"
+              icon={<ArrowLeftOutlined />}
+              onClick={handleBackToSuites}
+              style={{ borderRadius: '6px' }}
+            >
+              返回
+            </Button>
+            <div style={{ fontSize: '18px', fontWeight: 600, color: '#262626' }}>
+              {suiteDetail?.suite?.name || '测试套'}
+            </div>
           </div>
           <Space size="middle">
-            <Input.Search
-              placeholder="搜索脚本名称或描述"
-              style={{ width: 280 }}
-              onSearch={(value) => {
-                setKeyword(value);
-                setPage(1);
-                loadScripts();
+            <Button
+              type="primary"
+              icon={<UploadOutlined />}
+              onClick={() => setUploadScriptModalVisible(true)}
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                borderRadius: '6px',
+                height: '36px'
               }}
-              allowClear
-            />
+            >
+              上传脚本
+            </Button>
+            <Popconfirm
+              title={`确定删除所选的 ${selectedScriptKeys.length} 个脚本吗？`}
+              onConfirm={handleBatchDelete}
+              okText="确定"
+              cancelText="取消"
+              disabled={selectedScriptKeys.length === 0}
+            >
+              <Button
+                danger
+                disabled={selectedScriptKeys.length === 0}
+                style={{ borderRadius: '6px', height: '36px' }}
+              >
+                批量删除 ({selectedScriptKeys.length})
+              </Button>
+            </Popconfirm>
             <Button
               type="primary"
               icon={<PlayCircleOutlined />}
@@ -389,30 +611,8 @@ export default function ScriptManagementPage() {
               一键执行全部
             </Button>
             <Button
-              type="primary"
-              icon={<UploadOutlined />}
-              onClick={() => setUploadModalVisible(true)}
-              style={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                border: 'none',
-                borderRadius: '6px',
-                height: '36px'
-              }}
-            >
-              上传脚本
-            </Button>
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              onClick={handleBatchDeleteClick}
-              disabled={selectedRowKeys.length === 0}
-              style={{ borderRadius: '6px', height: '36px' }}
-            >
-              批量删除{selectedRowKeys.length > 0 ? ` (${selectedRowKeys.length})` : ''}
-            </Button>
-            <Button
               icon={<ReloadOutlined />}
-              onClick={loadScripts}
+              onClick={loadSuiteDetail}
               style={{ borderRadius: '6px', height: '36px' }}
             >
               刷新
@@ -421,43 +621,39 @@ export default function ScriptManagementPage() {
         </div>
 
         <Table
-          columns={columns}
+          columns={scriptColumns}
           dataSource={scripts}
           rowKey="id"
-          rowSelection={rowSelection}
-          loading={loading}
-          scroll={{ x: 1400 }}
+          loading={scriptLoading}
+          rowSelection={{
+            selectedRowKeys: selectedScriptKeys,
+            onChange: (keys) => setSelectedScriptKeys(keys),
+          } as TableRowSelection<ScriptResponse>}
+          scroll={{ x: 1000 }}
           style={{ marginTop: 16 }}
           pagination={{
-            current: page,
-            pageSize: pageSize,
-            total: total,
+            pageSize: 20,
             showSizeChanger: true,
             showTotal: (total) => `共 ${total} 条`,
-            onChange: (page, pageSize) => {
-              setPage(page);
-              setPageSize(pageSize);
-            },
           }}
         />
       </Card>
 
-      {/* 上传脚本模态框 */}
+      {/* Upload Script Modal */}
       <Modal
-        title="上传测试脚本"
-        open={uploadModalVisible}
+        title="上传脚本"
+        open={uploadScriptModalVisible}
         onCancel={() => {
-          setUploadModalVisible(false);
-          uploadForm.resetFields();
+          setUploadScriptModalVisible(false);
           setFileList([]);
         }}
-        onOk={() => uploadForm.submit()}
+        onOk={() => scriptUploadForm.submit()}
         width={600}
-        okText="确定"
+        okText="确认上传"
         cancelText="取消"
       >
-        <Form form={uploadForm} layout="vertical" onFinish={handleUpload}>
-          <Form.Item label="脚本文件" required>
+        <Form form={scriptUploadForm} layout="vertical" onFinish={handleUploadScript}>
+          <Form.Item label="选择脚本文件" required>
             <Upload
               fileList={fileList}
               beforeUpload={(file) => {
@@ -472,59 +668,18 @@ export default function ScriptManagementPage() {
               }}
               onRemove={() => setFileList([])}
               maxCount={1}
+              accept=".py,.sh,.js"
             >
-              <Button icon={<UploadOutlined />}>选择文件</Button>
+              <Button icon={<UploadOutlined />}>选择脚本文件</Button>
             </Upload>
             <div style={{ marginTop: 8, color: '#999', fontSize: 12 }}>
-              支持 .py, .sh, .js 文件及 ZIP 打包批量上传，最大 10MB
+              支持 .py, .sh, .js 文件
             </div>
           </Form.Item>
-
-          <Form.Item name="tags" label="标签">
-            <Select mode="tags" placeholder="选择或输入标签" style={{ width: '100%' }}>
-              <Select.Option value="GIDS">GIDS</Select.Option>
-              <Select.Option value="BGW">BGW</Select.Option>
-              <Select.Option value="MediaCache">MediaCache</Select.Option>
-              <Select.Option value="E2E">E2E</Select.Option>
-            </Select>
-          </Form.Item>
         </Form>
       </Modal>
 
-      {/* 编辑脚本模态框 */}
-      <Modal
-        title="编辑脚本"
-        open={editModalVisible}
-        onCancel={() => {
-          setEditModalVisible(false);
-          setCurrentScript(null);
-          editForm.resetFields();
-        }}
-        onOk={() => editForm.submit()}
-        width={600}
-        okText="确定"
-        cancelText="取消"
-      >
-        <Form form={editForm} layout="vertical" onFinish={handleEdit}>
-          <Form.Item
-            name="name"
-            label="脚本名称"
-            rules={[{ required: true, message: '请输入脚本名称' }]}
-          >
-            <Input />
-          </Form.Item>
-
-          <Form.Item name="description" label="描述">
-            <TextArea rows={3} />
-          </Form.Item>
-
-          <Form.Item name="tags" label="标签">
-            <Input placeholder="多个标签用逗号分隔" />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* 查看脚本内容模态框 */}
+      {/* View Script Modal */}
       <Modal
         title={`查看脚本：${currentScript?.name}`}
         open={viewModalVisible}
@@ -555,34 +710,6 @@ export default function ScriptManagementPage() {
         >
           {scriptContent}
         </pre>
-      </Modal>
-
-      {/* 批量删除确认模态框 */}
-      <Modal
-        title="批量删除脚本"
-        open={batchDeleteModalVisible}
-        onCancel={() => {
-          setBatchDeleteModalVisible(false);
-          setBatchDeleteConfirmInput('');
-        }}
-        onOk={handleBatchDelete}
-        okText="确认删除"
-        cancelText="取消"
-        okButtonProps={{ danger: true, disabled: batchDeleteConfirmInput !== 'delete' }}
-      >
-        <div style={{ marginBottom: 16 }}>
-          <p style={{ color: '#ff4d4f', fontWeight: 500 }}>
-            警告：即将删除 {selectedRowKeys.length} 个脚本，此操作不可恢复！
-          </p>
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <p>请在下方输入 <strong>delete</strong> 确认删除：</p>
-          <Input
-            value={batchDeleteConfirmInput}
-            onChange={(e) => setBatchDeleteConfirmInput(e.target.value)}
-            placeholder="请输入 delete"
-          />
-        </div>
       </Modal>
     </div>
   );

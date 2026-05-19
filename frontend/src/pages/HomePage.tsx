@@ -8,6 +8,7 @@ const { Header, Content, Sider } = Layout;
 
 export default function HomePage() {
   const [username, setUsername] = useState('');
+  const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -106,19 +107,25 @@ export default function HomePage() {
       </Header>
       <Layout>
         <Sider
-          width={220}
+          width={200}
+          collapsedWidth={64}
+          collapsed={collapsed}
+          onMouseEnter={() => setCollapsed(false)}
+          onMouseLeave={() => setCollapsed(true)}
           style={{
             background: '#fff',
             boxShadow: '2px 0 8px rgba(0,0,0,0.06)',
-            overflow: 'auto',
+            overflow: 'hidden',
             height: 'calc(100vh - 64px)',
             position: 'sticky',
             top: 64,
-            left: 0
+            left: 0,
+            transition: 'all 0.2s ease'
           }}
         >
           <Menu
             mode="inline"
+            inlineCollapsed={collapsed}
             selectedKeys={[selectedKey]}
             style={{
               height: '100%',

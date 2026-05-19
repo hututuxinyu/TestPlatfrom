@@ -8,98 +8,60 @@ import {
   Card,
   message,
   Popconfirm,
-  Select,
+  Tabs,
 } from 'antd';
 import {
   PlayCircleOutlined,
-  StopOutlined,
   EyeOutlined,
-  ReloadOutlined,
+  FileTextOutlined,
   DeleteOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
-import { apiService, type ExecutionResponse, type ScriptResponse } from '../services/api';
+import { apiService, type ExecutionResponse, type TaskResponse } from '../services/api';
+
+const { TabPane } = Tabs;
 
 export default function ExecutionManagementPage() {
-  const [executions, setExecutions] = useState<ExecutionResponse[]>([]);
-  const [scripts, setScripts] = useState<ScriptResponse[]>([]);
+  const [tasks, setTasks] = useState<TaskResponse[]>([]);
   const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [statusFilter, setStatusFilter] = useState<string | undefined>();
-  const [scriptFilter, setScriptFilter] = useState<number | undefined>();
+  const [selectedTask, setSelectedTask] = useState<TaskResponse | null>(null);
+  const [taskExecutions, setTaskExecutions] = useState<ExecutionResponse[]>([]);
   const [logModalVisible, setLogModalVisible] = useState(false);
   const [currentExecution, setCurrentExecution] = useState<ExecutionResponse | null>(null);
   const [logs, setLogs] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('tasks');
 
-  const loadExecutions = async () => {
+  const loadTasks = async () => {
     setLoading(true);
     try {
-      const response = await apiService.listExecutions({
-        page,
-        page_size: pageSize,
-        status: statusFilter,
-        script_id: scriptFilter,
-      });
+      const response = await apiService.listTasks({ page_size: 100 });
       if (response.code === 0 && response.data) {
-        setExecutions(response.data.items);
-        setTotal(response.data.total);
+        setTasks(response.data.items || []);
       }
-    } catch (error: any) {
-      message.error('加载执行列表失败');
+    } catch (error) {
+      console.error('加载任务列表失败', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadScripts = async () => {
-    try {
-      const response = await apiService.listScripts({ page: 1, page_size: 100 });
-      if (response.code === 0 && response.data) {
-        setScripts(response.data.items);
-      }
-    } catch (error) {
-      console.error('加载脚本列表失败', error);
-    }
-  };
-
   useEffect(() => {
-    loadScripts();
+    loadTasks();
   }, []);
 
-  useEffect(() => {
-    loadExecutions();
-    const interval = setInterval(loadExecutions, 3000); // 每3秒刷新一次
-    return () => clearInterval(interval);
-  }, [page, pageSize, statusFilter, scriptFilter]);
-
-  const handleExecute = async (scriptId: number) => {
+  const handleViewResults = async (task: TaskResponse) => {
+    setSelectedTask(task);
+    setActiveTab('results');
+    setLoading(true);
     try {
-      await apiService.createExecution(scriptId);
-      message.success('执行任务已创建');
-      loadExecutions();
-    } catch (error: any) {
-      message.error(error.response?.data?.message || '创建执行任务失败');
-    }
-  };
-
-  const handleStop = async (executionId: number) => {
-    try {
-      await apiService.stopExecution(executionId);
-      message.success('执行已停止');
-      loadExecutions();
-    } catch (error: any) {
-      message.error(error.response?.data?.message || '停止执行失败');
-    }
-  };
-
-  const handleDelete = async (executionId: number) => {
-    try {
-      await apiService.deleteExecution(executionId);
-      message.success('执行记录已删除');
-      loadExecutions();
-    } catch (error: any) {
-      message.error(error.response?.data?.message || '删除执行记录失败');
+      const response = await apiService.listTaskExecutions(task.id);
+      if (response.code === 0 && response.data) {
+        setTaskExecutions(response.data.items || []);
+      }
+    } catch (error) {
+      message.error('加载执行结果失败');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -125,6 +87,26 @@ export default function ExecutionManagementPage() {
     }
   };
 
+  const handleRestartTask = async (task: TaskResponse) => {
+    try {
+      await apiService.executeSuite(task.suite_id);
+      message.success('任务已重新启动');
+      loadTasks();
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '重新启动失败');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: number) => {
+    try {
+      await apiService.deleteTask(taskId);
+      message.success('任务已删除');
+      loadTasks();
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '删除失败');
+    }
+  };
+
   const getStatusTag = (status: string) => {
     const statusMap: Record<string, { color: string; text: string }> = {
       pending: { color: 'default', text: '等待中' },
@@ -137,7 +119,110 @@ export default function ExecutionManagementPage() {
     return <Tag color={config.color}>{config.text}</Tag>;
   };
 
-  const columns = [
+  const taskColumns = [
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: 60,
+      align: 'center' as const,
+    },
+    {
+      title: '测试套',
+      dataIndex: 'suite_name',
+      key: 'suite_name',
+      width: 150,
+      ellipsis: true,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      align: 'center' as const,
+      render: (status: string) => getStatusTag(status),
+    },
+    {
+      title: '进度',
+      key: 'progress',
+      width: 180,
+      render: (_: any, record: TaskResponse) => (
+        <span>
+          <Tag color="success">成功 {record.success_count}</Tag>
+          <Tag color="error">失败 {record.failed_count}</Tag>
+          <span style={{ marginLeft: 8 }}>共 {record.total_count}</span>
+        </span>
+      ),
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 160,
+      render: (time: string) => new Date(time).toLocaleString('zh-CN'),
+    },
+    {
+      title: '完成时间',
+      dataIndex: 'completed_at',
+      key: 'completed_at',
+      width: 160,
+      render: (time: string | null) => time ? new Date(time).toLocaleString('zh-CN') : '-',
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 280,
+      fixed: 'right' as const,
+      render: (_: any, record: TaskResponse) => (
+        <Space size="small">
+          <Button
+            type="primary"
+            size="small"
+            icon={<PlayCircleOutlined />}
+            onClick={() => handleRestartTask(record)}
+          >
+            启动
+          </Button>
+          <Button
+            type="default"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewResults(record)}
+          >
+            查看结果
+          </Button>
+          <Button
+            type="default"
+            size="small"
+            icon={<FileTextOutlined />}
+            onClick={() => {
+              setSelectedTask(record);
+              setActiveTab('detail');
+            }}
+          >
+            详情
+          </Button>
+          <Popconfirm
+            title="确定删除此任务吗？"
+            onConfirm={() => handleDeleteTask(record.id)}
+            okText="确定"
+            cancelText="取消"
+          >
+            <Button
+              type="link"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+            >
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  const executionColumns = [
     {
       title: 'ID',
       dataIndex: 'id',
@@ -190,59 +275,19 @@ export default function ExecutionManagementPage() {
         time ? new Date(time).toLocaleString('zh-CN') : '-',
     },
     {
-      title: '完成时间',
-      dataIndex: 'completed_at',
-      key: 'completed_at',
-      width: 160,
-      render: (time: string | undefined) =>
-        time ? new Date(time).toLocaleString('zh-CN') : '-',
-    },
-    {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 100,
       fixed: 'right' as const,
       render: (_: any, record: ExecutionResponse) => (
-        <Space size="small">
-          <Button
-            type="primary"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewLogs(record)}
-          >
-            日志
-          </Button>
-          {record.status === 'running' && (
-            <Popconfirm
-              title="确定停止此执行吗？"
-              onConfirm={() => handleStop(record.id)}
-              okText="确定"
-              cancelText="取消"
-            >
-              <Button type="link" size="small" danger icon={<StopOutlined />}>
-                停止
-              </Button>
-            </Popconfirm>
-          )}
-          <Button
-            type="link"
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => {
-              Modal.confirm({
-                title: '确认删除',
-                content: `确定要删除执行记录 "${record.script_name}" 吗？删除后无法恢复。`,
-                okText: '确认',
-                cancelText: '取消',
-                okButtonProps: { danger: true },
-                onOk: () => handleDelete(record.id),
-              });
-            }}
-          >
-            删除
-          </Button>
-        </Space>
+        <Button
+          type="link"
+          size="small"
+          icon={<EyeOutlined />}
+          onClick={() => handleViewLogs(record)}
+        >
+          日志
+        </Button>
       ),
     },
   ];
@@ -256,95 +301,96 @@ export default function ExecutionManagementPage() {
           boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.06)'
         }}
       >
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 20,
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <div style={{ fontSize: '18px', fontWeight: 600, color: '#262626' }}>
-            ▶️ 执行管理
-          </div>
-          <Space size="middle" wrap>
-            <Select
-              placeholder="选择脚本"
-              style={{ width: 200, borderRadius: '6px' }}
-              allowClear
-              onChange={(value) => {
-                setScriptFilter(value);
-                setPage(1);
-              }}
-            >
-              {scripts.map((script) => (
-                <Select.Option key={script.id} value={script.id}>
-                  {script.name}
-                </Select.Option>
-              ))}
-            </Select>
+        <div style={{ fontSize: '18px', fontWeight: 600, color: '#262626', marginBottom: 16 }}>
+          执行管理
+        </div>
 
-            <Select
-              placeholder="选择状态"
-              style={{ width: 150, borderRadius: '6px' }}
-              allowClear
-              onChange={(value) => {
-                setStatusFilter(value);
-                setPage(1);
-              }}
-            >
-              <Select.Option value="pending">等待中</Select.Option>
-              <Select.Option value="running">执行中</Select.Option>
-              <Select.Option value="completed">已完成</Select.Option>
-              <Select.Option value="failed">失败</Select.Option>
-              <Select.Option value="stopped">已停止</Select.Option>
-            </Select>
-
-            <Select
-              placeholder="快速执行脚本"
-              style={{ width: 200, borderRadius: '6px' }}
-              onChange={(value) => handleExecute(value)}
-              value={undefined}
-            >
-              {scripts.map((script) => (
-                <Select.Option key={script.id} value={script.id}>
-                  <PlayCircleOutlined /> {script.name}
-                </Select.Option>
-              ))}
-            </Select>
-
+        <Tabs activeKey={activeTab} onChange={setActiveTab}>
+          <TabPane tab="任务列表" key="tasks">
             <Button
               icon={<ReloadOutlined />}
-              onClick={loadExecutions}
-              style={{ borderRadius: '6px', height: '36px' }}
+              onClick={() => loadTasks()}
+              style={{ borderRadius: '6px', height: '36px', marginBottom: 16 }}
             >
               刷新
             </Button>
-          </Space>
-        </div>
+            <Table
+              columns={taskColumns}
+              dataSource={tasks}
+              rowKey="id"
+              loading={loading}
+              pagination={{
+                pageSize: 20,
+                showSizeChanger: true,
+                showTotal: (total) => `共 ${total} 个任务`,
+              }}
+            />
+          </TabPane>
 
-        <Table
-          columns={columns}
-          dataSource={executions}
-          rowKey="id"
-          loading={loading}
-          scroll={{ x: 1200 }}
-          style={{ marginTop: 16 }}
-          pagination={{
-            current: page,
-            pageSize: pageSize,
-            total: total,
-            showSizeChanger: true,
-            showTotal: (total) => `共 ${total} 条`,
-            onChange: (page, pageSize) => {
-              setPage(page);
-              setPageSize(pageSize);
-            },
-          }}
-        />
+          <TabPane tab="执行结果" key="results">
+            {selectedTask ? (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <Space size="large">
+                    <span>当前任务: <strong>{selectedTask.suite_name}</strong></span>
+                    <span>状态: {getStatusTag(selectedTask.status)}</span>
+                    <span>成功: <strong style={{ color: '#52c41a' }}>{selectedTask.success_count}</strong></span>
+                    <span>失败: <strong style={{ color: '#ff4d4f' }}>{selectedTask.failed_count}</strong></span>
+                    <span>总计: <strong>{selectedTask.total_count}</strong></span>
+                  </Space>
+                  <Button
+                    icon={<ReloadOutlined />}
+                    onClick={() => handleViewResults(selectedTask)}
+                    style={{ borderRadius: '6px', height: '36px' }}
+                  >
+                    刷新
+                  </Button>
+                </div>
+                <Table
+                  columns={executionColumns}
+                  dataSource={taskExecutions}
+                  rowKey="id"
+                  loading={loading}
+                  pagination={false}
+                  scroll={{ x: 900 }}
+                />
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '60px 0', color: '#999' }}>
+                请从"任务列表"中选择一个任务，点击"查看结果"
+              </div>
+            )}
+          </TabPane>
+
+          <TabPane tab="任务详情" key="detail">
+            {selectedTask ? (
+              <div style={{ padding: '16px 0' }}>
+                <div style={{ background: '#f5f5f5', padding: 24, borderRadius: 8 }}>
+                  <p><strong>测试套:</strong> {selectedTask.suite_name}</p>
+                  <p><strong>状态:</strong> {getStatusTag(selectedTask.status)}</p>
+                  <p><strong>进度:</strong> 成功 {selectedTask.success_count} / 失败 {selectedTask.failed_count} / 总计 {selectedTask.total_count}</p>
+                  <p><strong>创建时间:</strong> {new Date(selectedTask.created_at).toLocaleString('zh-CN')}</p>
+                  {selectedTask.completed_at && (
+                    <p><strong>完成时间:</strong> {new Date(selectedTask.completed_at).toLocaleString('zh-CN')}</p>
+                  )}
+                </div>
+                <div style={{ marginTop: 24, padding: 24, background: '#f0f7ff', borderRadius: 8, border: '1px solid #91caff' }}>
+                  <div style={{ color: '#1677ff', fontSize: 14 }}>
+                    <FileTextOutlined style={{ marginRight: 8 }} />
+                    Trace覆盖率功能（开发中）
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '60px 0', color: '#999' }}>
+                请从"任务列表"中选择一个任务，点击"详情"
+              </div>
+            )}
+          </TabPane>
+        </Tabs>
       </Card>
 
-      {/* 查看日志模态框 */}
+      {/* 查看日志 Modal */}
       <Modal
         title={`执行日志：${currentExecution?.script_name} (ID: ${currentExecution?.id})`}
         open={logModalVisible}

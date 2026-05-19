@@ -26,12 +26,16 @@ func (s *Server) SetupRoutes(db *sql.DB, exec *executor.Executor) {
 	executionRepo := repository.NewExecutionRepository(db)
 	executionLogRepo := repository.NewExecutionLogRepository(db)
 	configRepo := repository.NewConfigRepository(db)
+	suiteRepo := repository.NewSuiteRepository(db)
+	taskRepo := repository.NewTaskRepository(db)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, s.config)
 	scriptHandler := handlers.NewScriptHandler(scriptRepo, s.config)
 	executionHandler := handlers.NewExecutionHandler(executionRepo, executionLogRepo, scriptRepo, exec)
 	configHandler := handlers.NewConfigHandler(configRepo)
+	suiteHandler := handlers.NewSuiteHandler(suiteRepo, scriptRepo, taskRepo, executionRepo, exec, s.config)
+	taskHandler := handlers.NewTaskHandler(taskRepo, executionRepo, suiteRepo)
 
 	// Health check endpoints
 	s.router.GET("/health", s.healthCheck)
@@ -73,6 +77,24 @@ func (s *Server) SetupRoutes(db *sql.DB, exec *executor.Executor) {
 			protected.GET("/configs/:key", configHandler.Get)
 			protected.POST("/configs", configHandler.Set)
 			protected.DELETE("/configs/:key", configHandler.Delete)
+
+			// Suite routes
+			protected.GET("/suites", suiteHandler.List)
+			protected.POST("/suites", suiteHandler.Create)
+			protected.GET("/suites/:id", suiteHandler.Get)
+			protected.PUT("/suites/:id", suiteHandler.Update)
+			protected.DELETE("/suites/:id", suiteHandler.Delete)
+			protected.GET("/suites/:id/scripts", suiteHandler.ListScripts)
+			protected.POST("/suites/:id/scripts", suiteHandler.UploadScript)
+			protected.GET("/suites/:id/export", suiteHandler.Export)
+			protected.POST("/suites/:id/execute", suiteHandler.ExecuteSuite)
+
+			// Task routes
+			protected.GET("/tasks", taskHandler.List)
+			protected.GET("/tasks/:id", taskHandler.Get)
+			protected.POST("/tasks/:id/stop", taskHandler.Stop)
+			protected.DELETE("/tasks/:id", taskHandler.Delete)
+			protected.GET("/tasks/:id/executions", taskHandler.ListExecutions)
 		}
 	}
 }

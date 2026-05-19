@@ -114,3 +114,4 @@ DB_NAME=testplatform
 - 后端 ListenAndServe 在端口占用时会报错退出
 - 数据库使用 MySQL，不是 SQLite
 - JWT 配置在 .env 中，secret 和 expiration 可配置
+- **修改代码后必须保证编译通过再提交**（Go: `go build` 成功，Frontend: `npm run dev` 无编译错误）

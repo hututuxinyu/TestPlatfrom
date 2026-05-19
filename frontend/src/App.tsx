@@ -21,6 +21,7 @@ function App() {
         >
           <Route index element={<Navigate to="/scripts" replace />} />
           <Route path="scripts" element={<ScriptManagementPage />} />
+          <Route path="scripts/:suiteId" element={<ScriptManagementPage />} />
           <Route path="executions" element={<ExecutionManagementPage />} />
           <Route path="configs" element={<ConfigPage />} />
           <Route path="reports" element={<div>测试报告（开发中）</div>} />

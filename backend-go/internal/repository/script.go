@@ -19,12 +19,12 @@ func NewScriptRepository(db *sql.DB) *ScriptRepository {
 // Create creates a new test script
 func (r *ScriptRepository) Create(ctx context.Context, script *models.TestScript) error {
 	query := `
-		INSERT INTO test_scripts (name, description, language, file_path, file_size, file_hash, tags, created_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO test_scripts (uuid, name, description, language, file_path, file_size, file_hash, suite_id, tags, created_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	result, err := r.db.ExecContext(ctx, query,
-		script.Name, script.Description, script.Language, script.FilePath,
-		script.FileSize, script.FileHash, script.Tags, script.CreatedBy,
+		script.UUID, script.Name, script.Description, script.Language, script.FilePath,
+		script.FileSize, script.FileHash, script.SuiteID, script.Tags, script.CreatedBy,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create script: %w", err)
@@ -49,14 +49,14 @@ func (r *ScriptRepository) Create(ctx context.Context, script *models.TestScript
 // GetByID retrieves a script by ID
 func (r *ScriptRepository) GetByID(ctx context.Context, id int) (*models.TestScript, error) {
 	query := `
-		SELECT id, name, description, language, file_path, file_size, file_hash, tags, created_by, created_at, updated_at
+		SELECT id, uuid, name, description, language, file_path, file_size, file_hash, suite_id, tags, created_by, created_at, updated_at
 		FROM test_scripts
 		WHERE id = ?
 	`
 	script := &models.TestScript{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&script.ID, &script.Name, &script.Description, &script.Language,
-		&script.FilePath, &script.FileSize, &script.FileHash, &script.Tags,
+		&script.ID, &script.UUID, &script.Name, &script.Description, &script.Language,
+		&script.FilePath, &script.FileSize, &script.FileHash, &script.SuiteID, &script.Tags,
 		&script.CreatedBy, &script.CreatedAt, &script.UpdatedAt,
 	)
 	if err != nil {
@@ -65,21 +65,21 @@ func (r *ScriptRepository) GetByID(ctx context.Context, id int) (*models.TestScr
 	return script, nil
 }
 
-// GetByName retrieves a script by name
-func (r *ScriptRepository) GetByName(ctx context.Context, name string) (*models.TestScript, error) {
+// GetByUUID retrieves a script by UUID
+func (r *ScriptRepository) GetByUUID(ctx context.Context, uuid string) (*models.TestScript, error) {
 	query := `
-		SELECT id, name, description, language, file_path, file_size, file_hash, tags, created_by, created_at, updated_at
+		SELECT id, uuid, name, description, language, file_path, file_size, file_hash, suite_id, tags, created_by, created_at, updated_at
 		FROM test_scripts
-		WHERE name = ?
+		WHERE uuid = ?
 	`
 	script := &models.TestScript{}
-	err := r.db.QueryRowContext(ctx, query, name).Scan(
-		&script.ID, &script.Name, &script.Description, &script.Language,
-		&script.FilePath, &script.FileSize, &script.FileHash, &script.Tags,
+	err := r.db.QueryRowContext(ctx, query, uuid).Scan(
+		&script.ID, &script.UUID, &script.Name, &script.Description, &script.Language,
+		&script.FilePath, &script.FileSize, &script.FileHash, &script.SuiteID, &script.Tags,
 		&script.CreatedBy, &script.CreatedAt, &script.UpdatedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get script by name: %w", err)
+		return nil, fmt.Errorf("failed to get script by uuid: %w", err)
 	}
 	return script, nil
 }
@@ -119,7 +119,7 @@ func (r *ScriptRepository) Delete(ctx context.Context, id int) error {
 // List retrieves all scripts with optional filters
 func (r *ScriptRepository) List(ctx context.Context, language string, limit, offset int) ([]*models.TestScript, error) {
 	query := `
-		SELECT id, name, description, language, file_path, file_size, file_hash, tags, created_by, created_at, updated_at
+		SELECT id, uuid, name, description, language, file_path, file_size, file_hash, suite_id, tags, created_by, created_at, updated_at
 		FROM test_scripts
 		WHERE (? = '' OR language = ?)
 		ORDER BY created_at DESC
@@ -135,8 +135,39 @@ func (r *ScriptRepository) List(ctx context.Context, language string, limit, off
 	for rows.Next() {
 		script := &models.TestScript{}
 		err := rows.Scan(
-			&script.ID, &script.Name, &script.Description, &script.Language,
-			&script.FilePath, &script.FileSize, &script.FileHash, &script.Tags,
+			&script.ID, &script.UUID, &script.Name, &script.Description, &script.Language,
+			&script.FilePath, &script.FileSize, &script.FileHash, &script.SuiteID, &script.Tags,
+			&script.CreatedBy, &script.CreatedAt, &script.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan script: %w", err)
+		}
+		scripts = append(scripts, script)
+	}
+
+	return scripts, nil
+}
+
+// ListBySuiteID retrieves all scripts in a suite
+func (r *ScriptRepository) ListBySuiteID(ctx context.Context, suiteID int) ([]*models.TestScript, error) {
+	query := `
+		SELECT id, uuid, name, description, language, file_path, file_size, file_hash, suite_id, tags, created_by, created_at, updated_at
+		FROM test_scripts
+		WHERE suite_id = ?
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query, suiteID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list scripts by suite: %w", err)
+	}
+	defer rows.Close()
+
+	var scripts []*models.TestScript
+	for rows.Next() {
+		script := &models.TestScript{}
+		err := rows.Scan(
+			&script.ID, &script.UUID, &script.Name, &script.Description, &script.Language,
+			&script.FilePath, &script.FileSize, &script.FileHash, &script.SuiteID, &script.Tags,
 			&script.CreatedBy, &script.CreatedAt, &script.UpdatedAt,
 		)
 		if err != nil {
@@ -163,10 +194,21 @@ func (r *ScriptRepository) Count(ctx context.Context, language string) (int, err
 	return count, nil
 }
 
+// CountBySuiteID returns the total number of scripts in a suite
+func (r *ScriptRepository) CountBySuiteID(ctx context.Context, suiteID int) (int, error) {
+	query := `SELECT COUNT(*) FROM test_scripts WHERE suite_id = ?`
+	var count int
+	err := r.db.QueryRowContext(ctx, query, suiteID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count scripts by suite: %w", err)
+	}
+	return count, nil
+}
+
 // ListAll retrieves all scripts without pagination
 func (r *ScriptRepository) ListAll(ctx context.Context) ([]*models.TestScript, error) {
 	query := `
-		SELECT id, name, description, language, file_path, file_size, file_hash, tags, created_by, created_at, updated_at
+		SELECT id, uuid, name, description, language, file_path, file_size, file_hash, suite_id, tags, created_by, created_at, updated_at
 		FROM test_scripts
 		ORDER BY created_at DESC
 	`
@@ -180,8 +222,8 @@ func (r *ScriptRepository) ListAll(ctx context.Context) ([]*models.TestScript, e
 	for rows.Next() {
 		script := &models.TestScript{}
 		err := rows.Scan(
-			&script.ID, &script.Name, &script.Description, &script.Language,
-			&script.FilePath, &script.FileSize, &script.FileHash, &script.Tags,
+			&script.ID, &script.UUID, &script.Name, &script.Description, &script.Language,
+			&script.FilePath, &script.FileSize, &script.FileHash, &script.SuiteID, &script.Tags,
 			&script.CreatedBy, &script.CreatedAt, &script.UpdatedAt,
 		)
 		if err != nil {
@@ -215,13 +257,23 @@ func (r *ScriptRepository) DeleteByIDs(ctx context.Context, ids []int) error {
 	return nil
 }
 
+// DeleteBySuiteID deletes all scripts in a suite
+func (r *ScriptRepository) DeleteBySuiteID(ctx context.Context, suiteID int) error {
+	query := `DELETE FROM test_scripts WHERE suite_id = ?`
+	_, err := r.db.ExecContext(ctx, query, suiteID)
+	if err != nil {
+		return fmt.Errorf("failed to delete scripts by suite: %w", err)
+	}
+	return nil
+}
+
 // ListByIDs retrieves scripts by IDs
 func (r *ScriptRepository) ListByIDs(ctx context.Context, ids []int) ([]*models.TestScript, error) {
 	if len(ids) == 0 {
 		return []*models.TestScript{}, nil
 	}
 	query := `
-		SELECT id, name, description, language, file_path, file_size, file_hash, tags, created_by, created_at, updated_at
+		SELECT id, uuid, name, description, language, file_path, file_size, file_hash, suite_id, tags, created_by, created_at, updated_at
 		FROM test_scripts
 		WHERE id IN (`
 	args := make([]interface{}, len(ids))
@@ -243,8 +295,8 @@ func (r *ScriptRepository) ListByIDs(ctx context.Context, ids []int) ([]*models.
 	for rows.Next() {
 		script := &models.TestScript{}
 		err := rows.Scan(
-			&script.ID, &script.Name, &script.Description, &script.Language,
-			&script.FilePath, &script.FileSize, &script.FileHash, &script.Tags,
+			&script.ID, &script.UUID, &script.Name, &script.Description, &script.Language,
+			&script.FilePath, &script.FileSize, &script.FileHash, &script.SuiteID, &script.Tags,
 			&script.CreatedBy, &script.CreatedAt, &script.UpdatedAt,
 		)
 		if err != nil {
@@ -254,4 +306,15 @@ func (r *ScriptRepository) ListByIDs(ctx context.Context, ids []int) ([]*models.
 	}
 
 	return scripts, nil
+}
+
+// GetLineCount returns the number of lines in a script file
+func (r *ScriptRepository) GetLineCount(ctx context.Context, id int) (int, error) {
+	query := `SELECT LENGTH(file_path) FROM test_scripts WHERE id = ?`
+	var lines int
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&lines)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get line count: %w", err)
+	}
+	return lines, nil
 }

@@ -19,11 +19,11 @@ func NewExecutionRepository(db *sql.DB) *ExecutionRepository {
 // Create creates a new test execution
 func (r *ExecutionRepository) Create(ctx context.Context, execution *models.TestExecution) error {
 	query := `
-		INSERT INTO test_executions (script_id, script_name, status, created_by)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO test_executions (task_id, script_id, script_uuid, script_name, status, created_by)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`
 	result, err := r.db.ExecContext(ctx, query,
-		execution.ScriptID, execution.ScriptName, execution.Status, execution.CreatedBy,
+		execution.TaskID, execution.ScriptID, execution.ScriptUUID, execution.ScriptName, execution.Status, execution.CreatedBy,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create execution: %w", err)
@@ -48,13 +48,13 @@ func (r *ExecutionRepository) Create(ctx context.Context, execution *models.Test
 // GetByID retrieves an execution by ID
 func (r *ExecutionRepository) GetByID(ctx context.Context, id int) (*models.TestExecution, error) {
 	query := `
-		SELECT id, script_id, script_name, status, exit_code, started_at, completed_at, duration_seconds, created_by, created_at
+		SELECT id, task_id, script_id, script_uuid, script_name, status, exit_code, started_at, completed_at, duration_seconds, created_by, created_at
 		FROM test_executions
 		WHERE id = ?
 	`
 	execution := &models.TestExecution{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&execution.ID, &execution.ScriptID, &execution.ScriptName, &execution.Status,
+		&execution.ID, &execution.TaskID, &execution.ScriptID, &execution.ScriptUUID, &execution.ScriptName, &execution.Status,
 		&execution.ExitCode, &execution.StartedAt, &execution.CompletedAt,
 		&execution.DurationSeconds, &execution.CreatedBy, &execution.CreatedAt,
 	)
@@ -82,15 +82,15 @@ func (r *ExecutionRepository) Update(ctx context.Context, execution *models.Test
 }
 
 // List retrieves executions with optional filters
-func (r *ExecutionRepository) List(ctx context.Context, scriptID int, status string, limit, offset int) ([]*models.TestExecution, error) {
+func (r *ExecutionRepository) List(ctx context.Context, scriptID int, taskID int, status string, limit, offset int) ([]*models.TestExecution, error) {
 	query := `
-		SELECT id, script_id, script_name, status, exit_code, started_at, completed_at, duration_seconds, created_by, created_at
+		SELECT id, task_id, script_id, script_uuid, script_name, status, exit_code, started_at, completed_at, duration_seconds, created_by, created_at
 		FROM test_executions
-		WHERE (? = 0 OR script_id = ?) AND (? = '' OR status = ?)
+		WHERE (? = 0 OR script_id = ?) AND (? = 0 OR task_id = ?) AND (? = '' OR status = ?)
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
 	`
-	rows, err := r.db.QueryContext(ctx, query, scriptID, scriptID, status, status, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, scriptID, scriptID, taskID, taskID, status, status, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list executions: %w", err)
 	}
@@ -100,7 +100,38 @@ func (r *ExecutionRepository) List(ctx context.Context, scriptID int, status str
 	for rows.Next() {
 		execution := &models.TestExecution{}
 		err := rows.Scan(
-			&execution.ID, &execution.ScriptID, &execution.ScriptName, &execution.Status,
+			&execution.ID, &execution.TaskID, &execution.ScriptID, &execution.ScriptUUID, &execution.ScriptName, &execution.Status,
+			&execution.ExitCode, &execution.StartedAt, &execution.CompletedAt,
+			&execution.DurationSeconds, &execution.CreatedBy, &execution.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan execution: %w", err)
+		}
+		executions = append(executions, execution)
+	}
+
+	return executions, nil
+}
+
+// ListByTaskID retrieves all executions for a task
+func (r *ExecutionRepository) ListByTaskID(ctx context.Context, taskID int) ([]*models.TestExecution, error) {
+	query := `
+		SELECT id, task_id, script_id, script_uuid, script_name, status, exit_code, started_at, completed_at, duration_seconds, created_by, created_at
+		FROM test_executions
+		WHERE task_id = ?
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list executions by task: %w", err)
+	}
+	defer rows.Close()
+
+	var executions []*models.TestExecution
+	for rows.Next() {
+		execution := &models.TestExecution{}
+		err := rows.Scan(
+			&execution.ID, &execution.TaskID, &execution.ScriptID, &execution.ScriptUUID, &execution.ScriptName, &execution.Status,
 			&execution.ExitCode, &execution.StartedAt, &execution.CompletedAt,
 			&execution.DurationSeconds, &execution.CreatedBy, &execution.CreatedAt,
 		)
@@ -114,14 +145,14 @@ func (r *ExecutionRepository) List(ctx context.Context, scriptID int, status str
 }
 
 // Count returns the total number of executions
-func (r *ExecutionRepository) Count(ctx context.Context, scriptID int, status string) (int, error) {
+func (r *ExecutionRepository) Count(ctx context.Context, scriptID int, taskID int, status string) (int, error) {
 	query := `
 		SELECT COUNT(*)
 		FROM test_executions
-		WHERE (? = 0 OR script_id = ?) AND (? = '' OR status = ?)
+		WHERE (? = 0 OR script_id = ?) AND (? = 0 OR task_id = ?) AND (? = '' OR status = ?)
 	`
 	var count int
-	err := r.db.QueryRowContext(ctx, query, scriptID, scriptID, status, status).Scan(&count)
+	err := r.db.QueryRowContext(ctx, query, scriptID, scriptID, taskID, taskID, status, status).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count executions: %w", err)
 	}

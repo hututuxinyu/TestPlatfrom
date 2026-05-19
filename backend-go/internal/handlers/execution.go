@@ -62,6 +62,7 @@ func (h *ExecutionHandler) Start(c *gin.Context) {
 	// Create execution record
 	execution := &models.TestExecution{
 		ScriptID:   script.ID,
+		ScriptUUID: script.UUID,
 		ScriptName: script.Name,
 		Status:     "pending",
 		CreatedBy:  &userIDInt,
@@ -216,6 +217,7 @@ func (h *ExecutionHandler) BatchExecuteAll(c *gin.Context) {
 // List handles listing executions
 func (h *ExecutionHandler) List(c *gin.Context) {
 	scriptID, _ := strconv.Atoi(c.Query("script_id"))
+	taskID, _ := strconv.Atoi(c.Query("task_id"))
 	status := c.Query("status")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -229,13 +231,13 @@ func (h *ExecutionHandler) List(c *gin.Context) {
 
 	offset := (page - 1) * pageSize
 
-	executions, err := h.executionRepo.List(c.Request.Context(), scriptID, status, pageSize, offset)
+	executions, err := h.executionRepo.List(c.Request.Context(), scriptID, taskID, status, pageSize, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list executions"})
 		return
 	}
 
-	total, err := h.executionRepo.Count(c.Request.Context(), scriptID, status)
+	total, err := h.executionRepo.Count(c.Request.Context(), scriptID, taskID, status)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count executions"})
 		return

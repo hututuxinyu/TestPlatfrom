@@ -10,12 +10,13 @@ export interface ScriptUploadRequest {
 
 export interface ScriptResponse {
   id: number;
+  uuid: string;
   name: string;
   description?: string;
   file_path: string;
   file_size: number;
   file_hash: string;
-  language: string;
+  suite_id?: number;
   tags: string[];
   created_by: number;
   created_at: string;
@@ -31,7 +32,9 @@ export interface ScriptListResponse {
 
 export interface ExecutionResponse {
   id: number;
+  task_id?: number;
   script_id: number;
+  script_uuid: string;
   script_name: string;
   status: string;
   exit_code?: number;
@@ -40,6 +43,47 @@ export interface ExecutionResponse {
   duration_seconds?: number;
   created_by: number;
   created_at: string;
+}
+
+export interface SuiteSummary {
+  id: number;
+  name: string;
+  script_count: number;
+  total_lines: number;
+  latest_upload: string;
+}
+
+export interface SuiteResponse {
+  id: number;
+  name: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SuiteDetailResponse {
+  suite: SuiteResponse;
+  summary: SuiteSummary;
+}
+
+export interface TaskResponse {
+  id: number;
+  suite_id: number;
+  suite_name: string;
+  status: string;
+  total_count: number;
+  success_count: number;
+  failed_count: number;
+  created_by: number;
+  created_at: string;
+  completed_at?: string;
+}
+
+export interface TaskListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  items: TaskResponse[];
 }
 
 export interface ExecutionListResponse {
@@ -245,6 +289,101 @@ class ApiService {
 
   async deleteConfig(key: string): Promise<ApiResponse<null>> {
     const response = await this.client.delete<ApiResponse<null>>(`/api/v1/configs/${key}`);
+    return response.data;
+  }
+
+  // Suite APIs
+  async listSuites(): Promise<ApiResponse<{ items: SuiteSummary[]; total: number }>> {
+    const response = await this.client.get('/api/v1/suites');
+    return response.data;
+  }
+
+  async getSuite(id: number): Promise<ApiResponse<SuiteDetailResponse>> {
+    const response = await this.client.get(`/api/v1/suites/${id}`);
+    return response.data;
+  }
+
+  async createSuite(name: string, file?: File): Promise<ApiResponse<any>> {
+    const formData = new FormData();
+    formData.append('name', name);
+    if (file) {
+      formData.append('file', file);
+    }
+    const response = await this.client.post('/api/v1/suites', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  async updateSuite(id: number, name: string): Promise<ApiResponse<SuiteResponse>> {
+    const response = await this.client.put(`/api/v1/suites/${id}`, { name });
+    return response.data;
+  }
+
+  async deleteSuite(id: number): Promise<ApiResponse<{ message: string }>> {
+    const response = await this.client.delete(`/api/v1/suites/${id}`);
+    return response.data;
+  }
+
+  async listSuiteScripts(suiteId: number): Promise<ApiResponse<{ items: ScriptResponse[]; total: number }>> {
+    const response = await this.client.get(`/api/v1/suites/${suiteId}/scripts`);
+    return response.data;
+  }
+
+  async uploadScriptToSuite(suiteId: number, file: File): Promise<ApiResponse<ScriptResponse>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await this.client.post(`/api/v1/suites/${suiteId}/scripts`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  async exportSuite(suiteId: number): Promise<Blob> {
+    const response = await this.client.get(`/api/v1/suites/${suiteId}/export`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  // Task APIs
+  async listTasks(params: {
+    suite_id?: number;
+    page?: number;
+    page_size?: number;
+  }): Promise<ApiResponse<TaskListResponse>> {
+    const response = await this.client.get('/api/v1/tasks', { params });
+    return response.data;
+  }
+
+  async getTask(id: number): Promise<ApiResponse<TaskResponse>> {
+    const response = await this.client.get(`/api/v1/tasks/${id}`);
+    return response.data;
+  }
+
+  async stopTask(id: number): Promise<ApiResponse<{ message: string }>> {
+    const response = await this.client.post(`/api/v1/tasks/${id}/stop`);
+    return response.data;
+  }
+
+  async deleteTask(id: number): Promise<ApiResponse<null>> {
+    const response = await this.client.delete(`/api/v1/tasks/${id}`);
+    return response.data;
+  }
+
+  async listTaskExecutions(taskId: number): Promise<ApiResponse<{ items: ExecutionResponse[]; total: number }>> {
+    const response = await this.client.get(`/api/v1/tasks/${taskId}/executions`);
+    return response.data;
+  }
+
+  // Execute all scripts in a suite
+  async executeSuite(suiteId: number): Promise<ApiResponse<{
+    total: number;
+    succeeded: number;
+    failed: number;
+    executions?: ExecutionResponse[];
+  }>> {
+    const response = await this.client.post(`/api/v1/suites/${suiteId}/execute`);
     return response.data;
   }
 }
