@@ -123,7 +123,7 @@ func setDefaults() {
 
 	// Executor defaults
 	viper.SetDefault("MAX_CONCURRENT_EXECUTIONS", 100)
-	viper.SetDefault("DEFAULT_TIMEOUT", 3600*time.Second)
+	viper.SetDefault("DEFAULT_TIMEOUT", 600*time.Second)
 	viper.SetDefault("UPLOAD_DIR", "data/uploads")
 	viper.SetDefault("LOG_DIR", "logs")
 
