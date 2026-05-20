@@ -124,8 +124,8 @@ func setDefaults() {
 	// Executor defaults
 	viper.SetDefault("MAX_CONCURRENT_EXECUTIONS", 100)
 	viper.SetDefault("DEFAULT_TIMEOUT", 600*time.Second)
-	viper.SetDefault("UPLOAD_DIR", "data/uploads")
-	viper.SetDefault("LOG_DIR", "logs")
+	viper.SetDefault("UPLOAD_DIR", "/opt/data/csp/TestPlatfrom/uploads")
+	viper.SetDefault("LOG_DIR", "/opt/data/csp/TestPlatfrom/logs")
 
 	// Logging defaults
 	viper.SetDefault("LOG_LEVEL", "info")
