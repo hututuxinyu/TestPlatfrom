@@ -116,11 +116,25 @@ func (h *ExecutionHandler) BatchStart(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from context
 	userID, _ := c.Get("user_id")
 	userIDInt := userID.(int)
 
 	ctx := c.Request.Context()
+
+	task := &models.TestTask{
+		TaskType:    "single_script",
+		SuiteName:   "批量执行",
+		Status:      "pending",
+		TotalCount:  len(req.ScriptIDs),
+		SuccessCount: 0,
+		FailedCount:  0,
+		CreatedBy:   &userIDInt,
+	}
+	if err := h.taskRepo.Create(ctx, task); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create task"})
+		return
+	}
+
 	var executions []*models.TestExecution
 	var failed []struct {
 		ScriptID int    `json:"script_id"`
@@ -128,7 +142,6 @@ func (h *ExecutionHandler) BatchStart(c *gin.Context) {
 	}
 
 	for _, scriptID := range req.ScriptIDs {
-		// Get script
 		script, err := h.scriptRepo.GetByID(ctx, scriptID)
 		if err != nil {
 			failed = append(failed, struct {
@@ -138,9 +151,10 @@ func (h *ExecutionHandler) BatchStart(c *gin.Context) {
 			continue
 		}
 
-		// Create execution record
 		execution := &models.TestExecution{
+			TaskID:     &task.ID,
 			ScriptID:   script.ID,
+			ScriptUUID: script.UUID,
 			ScriptName: script.Name,
 			Status:     "pending",
 			CreatedBy:  &userIDInt,
@@ -154,17 +168,18 @@ func (h *ExecutionHandler) BatchStart(c *gin.Context) {
 			continue
 		}
 
-		// Start execution in background
 		go h.executor.Execute(context.Background(), execution, script.FilePath, script.Language)
 		executions = append(executions, execution)
 	}
+
+	h.taskRepo.UpdateStatus(ctx, task.ID, "running")
 
 	response := gin.H{
 		"total":     len(req.ScriptIDs),
 		"succeeded": len(executions),
 		"failed":    len(failed),
+		"task_id":   task.ID,
 	}
-
 	if len(executions) > 0 {
 		response["executions"] = executions
 	}
@@ -177,7 +192,6 @@ func (h *ExecutionHandler) BatchStart(c *gin.Context) {
 
 // BatchExecuteAll handles executing all scripts
 func (h *ExecutionHandler) BatchExecuteAll(c *gin.Context) {
-	// Get all scripts
 	scripts, err := h.scriptRepo.ListAll(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list scripts"})
@@ -189,11 +203,25 @@ func (h *ExecutionHandler) BatchExecuteAll(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from context
 	userID, _ := c.Get("user_id")
 	userIDInt := userID.(int)
 
 	ctx := c.Request.Context()
+
+	task := &models.TestTask{
+		TaskType:    "single_script",
+		SuiteName:   "全部执行",
+		Status:      "pending",
+		TotalCount:  len(scripts),
+		SuccessCount: 0,
+		FailedCount:  0,
+		CreatedBy:   &userIDInt,
+	}
+	if err := h.taskRepo.Create(ctx, task); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create task"})
+		return
+	}
+
 	var executions []*models.TestExecution
 	var failed []struct {
 		ScriptID int    `json:"script_id"`
@@ -201,9 +229,10 @@ func (h *ExecutionHandler) BatchExecuteAll(c *gin.Context) {
 	}
 
 	for _, script := range scripts {
-		// Create execution record
 		execution := &models.TestExecution{
+			TaskID:     &task.ID,
 			ScriptID:   script.ID,
+			ScriptUUID: script.UUID,
 			ScriptName: script.Name,
 			Status:     "pending",
 			CreatedBy:  &userIDInt,
@@ -217,17 +246,18 @@ func (h *ExecutionHandler) BatchExecuteAll(c *gin.Context) {
 			continue
 		}
 
-		// Start execution in background
 		go h.executor.Execute(context.Background(), execution, script.FilePath, script.Language)
 		executions = append(executions, execution)
 	}
+
+	h.taskRepo.UpdateStatus(ctx, task.ID, "running")
 
 	response := gin.H{
 		"total":     len(scripts),
 		"succeeded": len(executions),
 		"failed":    len(failed),
+		"task_id":   task.ID,
 	}
-
 	if len(executions) > 0 {
 		response["executions"] = executions
 	}
