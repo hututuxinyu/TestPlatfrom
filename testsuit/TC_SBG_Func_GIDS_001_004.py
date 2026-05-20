@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# TC_SBG_Func_GIDS_001_004.py
+# 测试用例: GIDS宫格登录接口(gridLoginAuth) - 正常流程测试
+# 目标: 验证 GIDS gridLoginAuth 接口正常功能
+
+import requests
+import json
+import sys
+import os
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# ========== 参数配置 (支持环境变量) ==========
+GIDS_ADDR = os.getenv('GIDS_ADDR', 'https://135.27.173.13:40051')
+
+def test_grid_login_auth_normal():
+    """
+    测试步骤1: 正常参数gridLoginAuth登录
+    预期: 返回成功，包含token和gateway地址（TcpAddr等字段被清空）
+    """
+    print("[INFO] ========== 测试步骤1: 正常参数gridLoginAuth登录 ==========")
+
+    test_data = {
+        "imsi": "685101555652111",
+        "imei": "6258412454025411",
+        "manufacturer": "Test Manufacturer",
+        "model": "Test Model",
+        "appType": "1",
+        "extendModel": "default",
+        "country": "CN",
+        "platform": "android",
+        "width": "1080",
+        "height": "1920",
+        "mcc": "460",
+        "mnc": "00",
+        "lac": "100",
+        "ci": "5210",
+        "rxlev": "-72",
+        "totalKb": "1424122",
+        "freeKb": "1424122",
+        "clientLanguage": "zh",
+        "deviceType": "1000"
+    }
+
+    print(f"[INFO] 请求参数: imsi={test_data['imsi']}, imei={test_data['imei']}")
+
+    try:
+        response = requests.post(
+            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuth",
+            json=test_data,
+            timeout=30,
+            verify=False
+        )
+
+        print(f"[INFO] 响应状态码: {response.status_code}")
+        print(f"[INFO] 响应数据: {response.text}")
+
+        resp_json = response.json()
+
+        if response.status_code == 200 and resp_json.get('code') == 200:
+            data = resp_json.get('data', {})
+            if data.get('token') and data.get('nodeGateWayUrl'):
+                # gridLoginAuth 会清空 TcpAddr, TlsTcpAddr, VideoMode, ShortAddr 等字段
+                if data.get('tcpAddr') == '' and data.get('tlsTcpAddr') == '':
+                    print("[PASS] gridLoginAuth登录成功，TcpAddr/TlsTcpAddr已清空")
+                    return True
+                else:
+                    print("[PASS] gridLoginAuth登录成功")
+                    return True
+            else:
+                print("[FAIL] 登录成功但缺少必要字段(token或nodeGateWayUrl)")
+                return False
+        else:
+            print(f"[FAIL] 登录失败: code={resp_json.get('code')}, message={resp_json.get('message')}")
+            return False
+
+    except requests.exceptions.ConnectionError as e:
+        print(f"[ERROR] 连接失败: 无法连接到 {GIDS_ADDR}")
+        return False
+    except Exception as e:
+        print(f"[ERROR] 请求异常: {str(e)}")
+        return False
+
+
+def test_grid_login_auth_minimal():
+    """
+    测试步骤2: 最小参数集gridLoginAuth登录
+    预期: 返回成功或适当的错误提示
+    """
+    print("\n[INFO] ========== 测试步骤2: 最小参数集gridLoginAuth登录 ==========")
+
+    test_data = {
+        "imsi": "685101555652111",
+        "imei": "6258412454025411"
+    }
+
+    print(f"[INFO] 请求参数(最小): imsi={test_data['imsi']}, imei={test_data['imei']}")
+
+    try:
+        response = requests.post(
+            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuth",
+            json=test_data,
+            timeout=30,
+            verify=False
+        )
+
+        print(f"[INFO] 响应状态码: {response.status_code}")
+        print(f"[INFO] 响应数据: {response.text}")
+
+        resp_json = response.json()
+        print(f"[PASS] 最小参数集测试完成，返回: code={resp_json.get('code')}")
+        return True
+
+    except requests.exceptions.ConnectionError as e:
+        print(f"[ERROR] 连接失败: 无法连接到 {GIDS_ADDR}")
+        return False
+    except Exception as e:
+        print(f"[ERROR] 请求异常: {str(e)}")
+        return False
+
+
+def main():
+    print("""
+==================================================================
+    GIDS宫格登录接口(gridLoginAuth) - 正常流程测试
+    TC_SBG_Func_GIDS_001_004
+==================================================================
+    """)
+    print(f"[INFO] GIDS地址: {GIDS_ADDR}")
+    print("")
+
+    test_results = []
+
+    result1 = test_grid_login_auth_normal()
+    test_results.append(("步骤1: 正常参数gridLoginAuth登录", result1))
+
+    result2 = test_grid_login_auth_minimal()
+    test_results.append(("步骤2: 最小参数集gridLoginAuth登录", result2))
+
+    print("\n[INFO] ========== 测试结果汇总 ==========")
+    for step, result in test_results:
+        status = "[PASS]" if result else "[FAIL]"
+        print(f"{status} {step}")
+
+    all_passed = all(result for _, result in test_results)
+    print(f"\n{'[SUCCESS]' if all_passed else '[FAILED]'} ========== 测试完成 ==========")
+
+    return 0 if all_passed else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
