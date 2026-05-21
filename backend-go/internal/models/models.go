@@ -29,6 +29,7 @@ type TestScript struct {
 	FilePath    string    `json:"file_path"`
 	FileSize    int64     `json:"file_size"`
 	FileHash    string    `json:"file_hash"`
+	Content     string    `json:"content"`
 	SuiteID     *int      `json:"suite_id"`
 	Tags        string    `json:"tags"`
 	CreatedBy   *int      `json:"created_by"`

@@ -97,8 +97,7 @@ func (h *ExecutionHandler) Start(c *gin.Context) {
 	// Update task status to running
 	h.taskRepo.UpdateStatus(context.Background(), task.ID, "running")
 
-	// Start execution in background
-	go h.executor.Execute(context.Background(), execution, script.FilePath, script.Language)
+	go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language)
 
 	SuccessResponse(c, execution)
 }
@@ -168,7 +167,7 @@ func (h *ExecutionHandler) BatchStart(c *gin.Context) {
 			continue
 		}
 
-		go h.executor.Execute(context.Background(), execution, script.FilePath, script.Language)
+		go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language)
 		executions = append(executions, execution)
 	}
 
@@ -246,7 +245,7 @@ func (h *ExecutionHandler) BatchExecuteAll(c *gin.Context) {
 			continue
 		}
 
-		go h.executor.Execute(context.Background(), execution, script.FilePath, script.Language)
+		go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language)
 		executions = append(executions, execution)
 	}
 

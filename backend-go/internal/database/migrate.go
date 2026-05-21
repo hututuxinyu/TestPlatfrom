@@ -113,6 +113,9 @@ func createTestScriptsTable(ctx context.Context, db *sql.DB) error {
 		if err := addColumnIfNotExists(ctx, db, "test_scripts", "suite_id", "INT NULL"); err != nil {
 			return err
 		}
+		if err := addColumnIfNotExists(ctx, db, "test_scripts", "content", "LONGTEXT"); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -126,6 +129,7 @@ func createTestScriptsTable(ctx context.Context, db *sql.DB) error {
 		file_path VARCHAR(512) NOT NULL,
 		file_size BIGINT NOT NULL DEFAULT 0,
 		file_hash VARCHAR(64),
+		content LONGTEXT,
 		suite_id INT NULL,
 		tags VARCHAR(255),
 		created_by INTEGER,
