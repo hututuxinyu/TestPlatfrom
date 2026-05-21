@@ -24,7 +24,6 @@ func (s *Server) SetupRoutes(db *sql.DB, exec *executor.Executor) {
 	userRepo := repository.NewUserRepository(db)
 	scriptRepo := repository.NewScriptRepository(db)
 	executionRepo := repository.NewExecutionRepository(db)
-	executionLogRepo := repository.NewExecutionLogRepository(db)
 	configRepo := repository.NewConfigRepository(db)
 	suiteRepo := repository.NewSuiteRepository(db)
 	taskRepo := repository.NewTaskRepository(db)
@@ -32,7 +31,7 @@ func (s *Server) SetupRoutes(db *sql.DB, exec *executor.Executor) {
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, s.config)
 	scriptHandler := handlers.NewScriptHandler(scriptRepo)
-	executionHandler := handlers.NewExecutionHandler(executionRepo, executionLogRepo, scriptRepo, taskRepo, exec)
+	executionHandler := handlers.NewExecutionHandler(executionRepo, scriptRepo, taskRepo, exec)
 	configHandler := handlers.NewConfigHandler(configRepo)
 	suiteHandler := handlers.NewSuiteHandler(suiteRepo, scriptRepo, taskRepo, executionRepo, exec)
 	taskHandler := handlers.NewTaskHandler(taskRepo, executionRepo, suiteRepo)

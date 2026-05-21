@@ -75,14 +75,7 @@ export default function ExecutionManagementPage() {
     try {
       const response = await apiService.getExecutionLogs(execution.id);
       if (response.code === 0 && response.data) {
-        const logText = response.data.logs
-          .map((log) => {
-            const time = new Date(log.timestamp).toLocaleTimeString();
-            const prefix = log.log_type === 'system' ? '[系统]' : log.log_type === 'stderr' ? '[错误]' : '[输出]';
-            return `${time} ${prefix} ${log.content}`;
-          })
-          .join('\n');
-        setLogs(logText || '暂无日志');
+        setLogs(response.data.logs || '暂无日志');
       }
     } catch (error: any) {
       setLogs('加载日志失败');

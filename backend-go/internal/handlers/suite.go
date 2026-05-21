@@ -506,7 +506,7 @@ func (h *SuiteHandler) ExecuteSuite(c *gin.Context) {
 			continue
 		}
 
-		go h.executor.Execute(ctx, execution, script.Name, script.Content, script.Language)
+		go h.executor.Execute(ctx, execution, script.Name, script.Content, script.Language, script.FilePath)
 	}
 
 	// Update task status to running

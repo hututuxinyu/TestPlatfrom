@@ -48,19 +48,21 @@ func (r *ExecutionRepository) Create(ctx context.Context, execution *models.Test
 // GetByID retrieves an execution by ID
 func (r *ExecutionRepository) GetByID(ctx context.Context, id int) (*models.TestExecution, error) {
 	query := `
-		SELECT id, task_id, script_id, script_uuid, script_name, status, exit_code, started_at, completed_at, duration_seconds, created_by, created_at
+		SELECT id, task_id, script_id, script_uuid, script_name, status, exit_code, started_at, completed_at, duration_seconds, log_content, created_by, created_at
 		FROM test_executions
 		WHERE id = ?
 	`
 	execution := &models.TestExecution{}
+	var logContent sql.NullString
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&execution.ID, &execution.TaskID, &execution.ScriptID, &execution.ScriptUUID, &execution.ScriptName, &execution.Status,
 		&execution.ExitCode, &execution.StartedAt, &execution.CompletedAt,
-		&execution.DurationSeconds, &execution.CreatedBy, &execution.CreatedAt,
+		&execution.DurationSeconds, &logContent, &execution.CreatedBy, &execution.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get execution by id: %w", err)
 	}
+	execution.LogContent = logContent.String
 	return execution, nil
 }
 
@@ -68,12 +70,12 @@ func (r *ExecutionRepository) GetByID(ctx context.Context, id int) (*models.Test
 func (r *ExecutionRepository) Update(ctx context.Context, execution *models.TestExecution) error {
 	query := `
 		UPDATE test_executions
-		SET status = ?, exit_code = ?, started_at = ?, completed_at = ?, duration_seconds = ?
+		SET status = ?, exit_code = ?, started_at = ?, completed_at = ?, duration_seconds = ?, log_content = ?
 		WHERE id = ?
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		execution.Status, execution.ExitCode, execution.StartedAt,
-		execution.CompletedAt, execution.DurationSeconds, execution.ID,
+		execution.CompletedAt, execution.DurationSeconds, execution.LogContent, execution.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update execution: %w", err)
@@ -84,7 +86,7 @@ func (r *ExecutionRepository) Update(ctx context.Context, execution *models.Test
 // List retrieves executions with optional filters
 func (r *ExecutionRepository) List(ctx context.Context, scriptID int, taskID int, status string, limit, offset int) ([]*models.TestExecution, error) {
 	query := `
-		SELECT id, task_id, script_id, script_uuid, script_name, status, exit_code, started_at, completed_at, duration_seconds, created_by, created_at
+		SELECT id, task_id, script_id, script_uuid, script_name, status, exit_code, started_at, completed_at, duration_seconds, log_content, created_by, created_at
 		FROM test_executions
 		WHERE (? = 0 OR script_id = ?) AND (? = 0 OR task_id = ?) AND (? = '' OR status = ?)
 		ORDER BY created_at DESC
@@ -99,14 +101,16 @@ func (r *ExecutionRepository) List(ctx context.Context, scriptID int, taskID int
 	var executions []*models.TestExecution
 	for rows.Next() {
 		execution := &models.TestExecution{}
+		var logContent sql.NullString
 		err := rows.Scan(
 			&execution.ID, &execution.TaskID, &execution.ScriptID, &execution.ScriptUUID, &execution.ScriptName, &execution.Status,
 			&execution.ExitCode, &execution.StartedAt, &execution.CompletedAt,
-			&execution.DurationSeconds, &execution.CreatedBy, &execution.CreatedAt,
+			&execution.DurationSeconds, &logContent, &execution.CreatedBy, &execution.CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan execution: %w", err)
 		}
+		execution.LogContent = logContent.String
 		executions = append(executions, execution)
 	}
 
@@ -116,7 +120,7 @@ func (r *ExecutionRepository) List(ctx context.Context, scriptID int, taskID int
 // ListByTaskID retrieves all executions for a task
 func (r *ExecutionRepository) ListByTaskID(ctx context.Context, taskID int) ([]*models.TestExecution, error) {
 	query := `
-		SELECT id, task_id, script_id, script_uuid, script_name, status, exit_code, started_at, completed_at, duration_seconds, created_by, created_at
+		SELECT id, task_id, script_id, script_uuid, script_name, status, exit_code, started_at, completed_at, duration_seconds, log_content, created_by, created_at
 		FROM test_executions
 		WHERE task_id = ?
 		ORDER BY created_at DESC
@@ -130,14 +134,16 @@ func (r *ExecutionRepository) ListByTaskID(ctx context.Context, taskID int) ([]*
 	var executions []*models.TestExecution
 	for rows.Next() {
 		execution := &models.TestExecution{}
+		var logContent sql.NullString
 		err := rows.Scan(
 			&execution.ID, &execution.TaskID, &execution.ScriptID, &execution.ScriptUUID, &execution.ScriptName, &execution.Status,
 			&execution.ExitCode, &execution.StartedAt, &execution.CompletedAt,
-			&execution.DurationSeconds, &execution.CreatedBy, &execution.CreatedAt,
+			&execution.DurationSeconds, &logContent, &execution.CreatedBy, &execution.CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan execution: %w", err)
 		}
+		execution.LogContent = logContent.String
 		executions = append(executions, execution)
 	}
 
