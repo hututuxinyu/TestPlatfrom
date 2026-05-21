@@ -62,6 +62,7 @@ type TestExecution struct {
 	StartedAt       *time.Time `json:"started_at"`
 	CompletedAt     *time.Time `json:"completed_at"`
 	DurationSeconds *float64   `json:"duration_seconds"`
+	LogContent      string     `json:"log_content"`
 	CreatedBy       *int       `json:"created_by"`
 	CreatedAt       time.Time  `json:"created_at"`
 }

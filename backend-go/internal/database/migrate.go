@@ -170,6 +170,9 @@ func createTestExecutionsTable(ctx context.Context, db *sql.DB) error {
 		if err := addColumnIfNotExists(ctx, db, "test_executions", "script_uuid", "VARCHAR(36) NOT NULL DEFAULT ''"); err != nil {
 			return err
 		}
+		if err := addColumnIfNotExists(ctx, db, "test_executions", "log_content", "TEXT"); err != nil {
+			return err
+		}
 		return nil
 	}
 

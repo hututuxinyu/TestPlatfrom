@@ -41,6 +41,7 @@ export interface ExecutionResponse {
   started_at?: string;
   completed_at?: string;
   duration_seconds?: number;
+  log_content?: string;
   created_by: number;
   created_at: string;
 }
@@ -94,17 +95,8 @@ export interface ExecutionListResponse {
   items: ExecutionResponse[];
 }
 
-export interface ExecutionLogResponse {
-  id: number;
-  execution_id: number;
-  log_type: string;
-  content: string;
-  timestamp: string;
-}
-
 export interface ExecutionLogsResponse {
-  execution_id: number;
-  logs: ExecutionLogResponse[];
+  logs: string;
 }
 
 export interface ConfigResponse {

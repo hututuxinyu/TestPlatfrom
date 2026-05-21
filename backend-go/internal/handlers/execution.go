@@ -12,26 +12,23 @@ import (
 )
 
 type ExecutionHandler struct {
-	executionRepo    *repository.ExecutionRepository
-	executionLogRepo *repository.ExecutionLogRepository
-	scriptRepo       *repository.ScriptRepository
-	taskRepo         *repository.TaskRepository
-	executor         *executor.Executor
+	executionRepo *repository.ExecutionRepository
+	scriptRepo    *repository.ScriptRepository
+	taskRepo      *repository.TaskRepository
+	executor      *executor.Executor
 }
 
 func NewExecutionHandler(
 	executionRepo *repository.ExecutionRepository,
-	executionLogRepo *repository.ExecutionLogRepository,
 	scriptRepo *repository.ScriptRepository,
 	taskRepo *repository.TaskRepository,
 	exec *executor.Executor,
 ) *ExecutionHandler {
 	return &ExecutionHandler{
-		executionRepo:    executionRepo,
-		executionLogRepo: executionLogRepo,
-		scriptRepo:       scriptRepo,
-		taskRepo:         taskRepo,
-		executor:         exec,
+		executionRepo: executionRepo,
+		scriptRepo:    scriptRepo,
+		taskRepo:      taskRepo,
+		executor:      exec,
 	}
 }
 
@@ -97,9 +94,9 @@ func (h *ExecutionHandler) Start(c *gin.Context) {
 	// Update task status to running
 	h.taskRepo.UpdateStatus(context.Background(), task.ID, "running")
 
-	go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language)
+	go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language, script.FilePath)
 
-	SuccessResponse(c, execution)
+SuccessResponse(c, execution)
 }
 
 // BatchStart handles starting multiple test executions
@@ -167,7 +164,7 @@ func (h *ExecutionHandler) BatchStart(c *gin.Context) {
 			continue
 		}
 
-		go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language)
+		go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language, script.FilePath)
 		executions = append(executions, execution)
 	}
 
@@ -245,7 +242,7 @@ func (h *ExecutionHandler) BatchExecuteAll(c *gin.Context) {
 			continue
 		}
 
-		go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language)
+		go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language, script.FilePath)
 		executions = append(executions, execution)
 	}
 
@@ -329,13 +326,13 @@ func (h *ExecutionHandler) GetLogs(c *gin.Context) {
 		return
 	}
 
-	logs, err := h.executionLogRepo.GetByExecutionID(c.Request.Context(), id)
+	execution, err := h.executionRepo.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get logs"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get execution"})
 		return
 	}
 
-	SuccessResponse(c, gin.H{"logs": logs})
+	SuccessResponse(c, gin.H{"logs": execution.LogContent})
 }
 
 // Delete handles deleting an execution

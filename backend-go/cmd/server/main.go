@@ -69,14 +69,12 @@ func main() {
 
 	// Initialize repositories
 	executionRepo := repository.NewExecutionRepository(db)
-	executionLogRepo := repository.NewExecutionLogRepository(db)
 	taskRepo := repository.NewTaskRepository(db)
 	configRepo := repository.NewConfigRepository(db)
 
 	// Initialize executor
 	exec := executor.NewExecutor(
 		executionRepo,
-		executionLogRepo,
 		taskRepo,
 		configRepo,
 		cfg.Executor.MaxConcurrent,
