@@ -518,6 +518,9 @@ func (h *SuiteHandler) ExecuteSuite(c *gin.Context) {
 		"suite_name":   suite.Name,
 		"script_count": len(scripts),
 		"task_id":      task.ID,
+		"total":        len(scripts),
+		"succeeded":    0,
+		"failed":       0,
 	})
 }
 
