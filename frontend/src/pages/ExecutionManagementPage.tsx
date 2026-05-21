@@ -401,7 +401,7 @@ export default function ExecutionManagementPage() {
                 <div style={{ marginTop: 24, padding: 24, background: '#f0f7ff', borderRadius: 8, border: '1px solid #91caff' }}>
                   <div style={{ color: '#1677ff', fontSize: 14 }}>
                     <FileTextOutlined style={{ marginRight: 8 }} />
-                    Trace覆盖率功能（开发中）
+                    测试任务执行分析报告（待开发）
                   </div>
                 </div>
               </div>
