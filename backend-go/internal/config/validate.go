@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 )
 
 // Validate validates the configuration
@@ -49,20 +48,6 @@ func (c *Config) Validate() error {
 	}
 	if c.Executor.DefaultTimeout <= 0 {
 		return fmt.Errorf("default timeout must be positive")
-	}
-	if c.Executor.UploadDir == "" {
-		return fmt.Errorf("upload directory is required")
-	}
-	if c.Executor.LogDir == "" {
-		return fmt.Errorf("log directory is required")
-	}
-
-	// Ensure directories exist
-	if err := os.MkdirAll(c.Executor.UploadDir, 0755); err != nil {
-		return fmt.Errorf("failed to create upload directory: %w", err)
-	}
-	if err := os.MkdirAll(c.Executor.LogDir, 0755); err != nil {
-		return fmt.Errorf("failed to create log directory: %w", err)
 	}
 
 	// Validate logging config

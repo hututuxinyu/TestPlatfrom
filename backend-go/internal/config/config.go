@@ -38,10 +38,8 @@ type JWTConfig struct {
 }
 
 type ExecutorConfig struct {
-	MaxConcurrent int
+	MaxConcurrent  int
 	DefaultTimeout time.Duration
-	UploadDir     string
-	LogDir        string
 }
 
 type LoggingConfig struct {
@@ -89,8 +87,6 @@ func Load() (*Config, error) {
 		Executor: ExecutorConfig{
 			MaxConcurrent:  viper.GetInt("MAX_CONCURRENT_EXECUTIONS"),
 			DefaultTimeout: viper.GetDuration("DEFAULT_TIMEOUT"),
-			UploadDir:      viper.GetString("UPLOAD_DIR"),
-			LogDir:         viper.GetString("LOG_DIR"),
 		},
 		Logging: LoggingConfig{
 			Level:  viper.GetString("LOG_LEVEL"),
@@ -124,8 +120,6 @@ func setDefaults() {
 	// Executor defaults
 	viper.SetDefault("MAX_CONCURRENT_EXECUTIONS", 100)
 	viper.SetDefault("DEFAULT_TIMEOUT", 600*time.Second)
-	viper.SetDefault("UPLOAD_DIR", "/opt/data/csp/TestPlatfrom/uploads")
-	viper.SetDefault("LOG_DIR", "/opt/data/csp/TestPlatfrom/logs")
 
 	// Logging defaults
 	viper.SetDefault("LOG_LEVEL", "info")

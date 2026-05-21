@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -9,26 +10,23 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/testplatform/backend/internal/config"
 	"github.com/testplatform/backend/internal/executor"
 	"github.com/testplatform/backend/internal/models"
 	"github.com/testplatform/backend/internal/repository"
 )
 
 type SuiteHandler struct {
-	suiteRepo    *repository.SuiteRepository
-	scriptRepo   *repository.ScriptRepository
-	taskRepo     *repository.TaskRepository
+	suiteRepo     *repository.SuiteRepository
+	scriptRepo    *repository.ScriptRepository
+	taskRepo      *repository.TaskRepository
 	executionRepo *repository.ExecutionRepository
-	executor     *executor.Executor
-	config       *config.Config
+	executor      *executor.Executor
 }
 
 func NewSuiteHandler(
@@ -37,15 +35,13 @@ func NewSuiteHandler(
 	taskRepo *repository.TaskRepository,
 	executionRepo *repository.ExecutionRepository,
 	exec *executor.Executor,
-	cfg *config.Config,
 ) *SuiteHandler {
 	return &SuiteHandler{
-		suiteRepo:    suiteRepo,
-		scriptRepo:   scriptRepo,
-		taskRepo:     taskRepo,
+		suiteRepo:     suiteRepo,
+		scriptRepo:    scriptRepo,
+		taskRepo:      taskRepo,
 		executionRepo: executionRepo,
-		executor:     exec,
-		config:       cfg,
+		executor:      exec,
 	}
 }
 
@@ -141,37 +137,19 @@ func (h *SuiteHandler) handleZipUpload(c *gin.Context, suite *models.TestSuite, 
 	}
 	defer src.Close()
 
-	// Create temp directory for extraction
-	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("suite_upload_%d", file.Size))
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
+	// Read entire zip into memory
+	zipContent, err := io.ReadAll(src)
+	if err != nil {
 		h.suiteRepo.Delete(c.Request.Context(), suite.ID)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create temp directory"})
-		return
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Save zip file temporarily
-	zipPath := filepath.Join(tempDir, file.Filename)
-	if err := c.SaveUploadedFile(file, zipPath); err != nil {
-		h.suiteRepo.Delete(c.Request.Context(), suite.ID)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save zip file"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read zip file"})
 		return
 	}
 
-	// Open and extract zip
-	reader, err := zip.OpenReader(zipPath)
+	// Open zip from memory
+	reader, err := zip.NewReader(bytes.NewReader(zipContent), int64(len(zipContent)))
 	if err != nil {
 		h.suiteRepo.Delete(c.Request.Context(), suite.ID)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid zip file"})
-		return
-	}
-	defer reader.Close()
-
-	// Create suite directory
-	suiteDir := filepath.Join(h.config.Executor.UploadDir, "suites", fmt.Sprintf("%d", suite.ID))
-	if err := os.MkdirAll(suiteDir, 0755); err != nil {
-		h.suiteRepo.Delete(c.Request.Context(), suite.ID)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create suite directory"})
 		return
 	}
 
@@ -214,30 +192,22 @@ func (h *SuiteHandler) handleZipUpload(c *gin.Context, suite *models.TestSuite, 
 		fileHash := hex.EncodeToString(hash.Sum(nil))
 		scriptUUID := uuid.New().String()
 
-		// Save file
-		filename := fmt.Sprintf("%s_%s", scriptUUID[:16], filepath.Base(zipFile.Name))
-		filePath := filepath.Join(suiteDir, filename)
-		if err := os.WriteFile(filePath, content, 0644); err != nil {
-			continue
-		}
-
 		// Extract name from filename (remove extension)
 		name := strings.TrimSuffix(filepath.Base(zipFile.Name), filepath.Ext(zipFile.Name))
 
-		// Create script record
+		// Create script record with content stored in database
 		script := &models.TestScript{
-			UUID:     scriptUUID,
-			Name:     name,
-			Language: language,
-			FilePath: filePath,
-			FileSize: int64(len(content)),
-			FileHash: fileHash,
-			SuiteID:  &suite.ID,
+			UUID:      scriptUUID,
+			Name:      name,
+			Language:  language,
+			FileSize:  int64(len(content)),
+			FileHash:  fileHash,
+			Content:   string(content),
+			SuiteID:   &suite.ID,
 			CreatedBy: &userID,
 		}
 
 		if err := h.scriptRepo.Create(c.Request.Context(), script); err != nil {
-			os.Remove(filePath)
 			continue
 		}
 
@@ -246,7 +216,6 @@ func (h *SuiteHandler) handleZipUpload(c *gin.Context, suite *models.TestSuite, 
 
 	if len(scripts) == 0 {
 		h.suiteRepo.Delete(c.Request.Context(), suite.ID)
-		os.RemoveAll(suiteDir)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No valid script files found in zip"})
 		return
 	}
@@ -296,7 +265,7 @@ func (h *SuiteHandler) Update(c *gin.Context) {
 	SuccessResponse(c, suite)
 }
 
-// Delete handles deleting a suite (requires deleting scripts first)
+// Delete handles deleting a suite
 func (h *SuiteHandler) Delete(c *gin.Context) {
 	id, err := strconvAtoi(c.Param("id"))
 	if err != nil {
@@ -304,29 +273,13 @@ func (h *SuiteHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	// Delete all scripts in the suite first
-	scripts, err := h.scriptRepo.ListBySuiteID(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list scripts"})
-		return
-	}
-
-	// Delete script files
-	for _, script := range scripts {
-		os.Remove(script.FilePath)
-	}
-
-	// Delete scripts from database
+	// Delete all scripts in the suite from database
 	if err := h.scriptRepo.DeleteBySuiteID(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete scripts"})
 		return
 	}
 
-	// Delete suite directory
-	suiteDir := filepath.Join(h.config.Executor.UploadDir, "suites", fmt.Sprintf("%d", id))
-	os.RemoveAll(suiteDir)
-
-	// Delete suite
+	// Delete suite record
 	if err := h.suiteRepo.Delete(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete suite"})
 		return
@@ -411,38 +364,22 @@ func (h *SuiteHandler) UploadScript(c *gin.Context) {
 		return
 	}
 
-	// Create suite directory if not exists
-	suiteDir := filepath.Join(h.config.Executor.UploadDir, "suites", fmt.Sprintf("%d", id))
-	if err := os.MkdirAll(suiteDir, 0755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create suite directory"})
-		return
-	}
-
-	// Save file
-	filename := fmt.Sprintf("%s_%s", scriptUUID[:16], file.Filename)
-	filePath := filepath.Join(suiteDir, filename)
-	if err := os.WriteFile(filePath, content, 0644); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
-		return
-	}
-
 	// Extract name from filename (remove extension)
 	name := strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))
 
-	// Create script record
+	// Create script record with content stored in database
 	script := &models.TestScript{
-		UUID:     scriptUUID,
-		Name:     name,
-		Language: language,
-		FilePath: filePath,
-		FileSize: file.Size,
-		FileHash: fileHash,
-		SuiteID:  &id,
+		UUID:      scriptUUID,
+		Name:      name,
+		Language:  language,
+		FileSize:  file.Size,
+		FileHash:  fileHash,
+		Content:   string(content),
+		SuiteID:   &id,
 		CreatedBy: &userIDInt,
 	}
 
 	if err := h.scriptRepo.Create(c.Request.Context(), script); err != nil {
-		os.Remove(filePath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create script record"})
 		return
 	}
@@ -484,17 +421,12 @@ func (h *SuiteHandler) Export(c *gin.Context) {
 	defer zipWriter.Close()
 
 	for _, script := range scripts {
-		content, err := os.ReadFile(script.FilePath)
-		if err != nil {
-			continue
-		}
-
 		f, err := zipWriter.Create(script.Name + "." + getExtByLanguage(script.Language))
 		if err != nil {
 			continue
 		}
-
-		f.Write(content)
+		// Write content from database
+		f.Write([]byte(script.Content))
 	}
 }
 
@@ -574,8 +506,7 @@ func (h *SuiteHandler) ExecuteSuite(c *gin.Context) {
 			continue
 		}
 
-		// Start execution in background
-		go h.executor.Execute(ctx, execution, script.FilePath, script.Language)
+		go h.executor.Execute(ctx, execution, script.Name, script.Content, script.Language)
 	}
 
 	// Update task status to running

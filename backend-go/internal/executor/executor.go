@@ -2,26 +2,17 @@ package executor
 
 import (
 	"bufio"
-	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/testplatform/backend/internal/models"
 	"github.com/testplatform/backend/internal/repository"
 	"golang.org/x/sync/semaphore"
-)
-
-const (
-	maxLogFileSize   = 10 * 1024 * 1024 // 10MB per log file
-	maxLogFiles      = 10                // Keep 10 rotated log files
-	logFileName      = "all.log"
 )
 
 type Executor struct {
@@ -30,54 +21,28 @@ type Executor struct {
 	taskRepo         *repository.TaskRepository
 	configRepo       *repository.ConfigRepository
 	semaphore        *semaphore.Weighted
-	logDir           string
 	defaultTimeout   time.Duration
-	logFile          *os.File
-	logMu            sync.Mutex // Mutex for thread-safe log file writing
 }
 
-// NewExecutor creates a new executor
 func NewExecutor(
 	executionRepo *repository.ExecutionRepository,
 	executionLogRepo *repository.ExecutionLogRepository,
 	taskRepo *repository.TaskRepository,
 	configRepo *repository.ConfigRepository,
 	maxConcurrent int,
-	logDir string,
 	defaultTimeout time.Duration,
 ) *Executor {
-	executor := &Executor{
+	return &Executor{
 		executionRepo:    executionRepo,
 		executionLogRepo: executionLogRepo,
 		taskRepo:         taskRepo,
 		configRepo:       configRepo,
 		semaphore:        semaphore.NewWeighted(int64(maxConcurrent)),
-		logDir:           logDir,
 		defaultTimeout:   defaultTimeout,
 	}
-	// Initialize shared log file
-	executor.initLogFile()
-	return executor
 }
 
-// initLogFile initializes the shared log file
-func (e *Executor) initLogFile() {
-	if err := os.MkdirAll(e.logDir, 0755); err != nil {
-		fmt.Printf("Failed to create log directory: %v\n", err)
-		return
-	}
-
-	logPath := filepath.Join(e.logDir, logFileName)
-	file, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		fmt.Printf("Failed to open log file: %v\n", err)
-		return
-	}
-	e.logFile = file
-}
-
-// Execute runs a test script
-func (e *Executor) Execute(ctx context.Context, execution *models.TestExecution, scriptPath string, language string) {
+func (e *Executor) Execute(ctx context.Context, execution *models.TestExecution, scriptName, scriptContent, language string) {
 	// Acquire semaphore
 	if err := e.semaphore.Acquire(ctx, 1); err != nil {
 		e.logError(ctx, execution.ID, fmt.Sprintf("Failed to acquire semaphore: %v", err))
@@ -94,14 +59,8 @@ func (e *Executor) Execute(ctx context.Context, execution *models.TestExecution,
 		return
 	}
 
-	// Resolve absolute path
-	absPath, err := filepath.Abs(scriptPath)
-	if err != nil {
-		absPath = scriptPath
-	}
-
 	// Log system info header (matching Python backend format)
-	e.logSystem(ctx, execution.ID, fmt.Sprintf("开始执行脚本: %s", absPath))
+	e.logSystem(ctx, execution.ID, fmt.Sprintf("开始执行脚本: %s", scriptName))
 	e.logSystem(ctx, execution.ID, fmt.Sprintf("脚本语言: %s", language))
 
 	// Get interpreter path
@@ -114,7 +73,6 @@ func (e *Executor) Execute(ctx context.Context, execution *models.TestExecution,
 	case "javascript":
 		interpreterPath = "node"
 	}
-	e.logSystem(ctx, execution.ID, fmt.Sprintf("使用绝对路径: %s", absPath))
 
 	// Collect env vars to inject
 	if e.configRepo != nil {
@@ -126,12 +84,36 @@ func (e *Executor) Execute(ctx context.Context, execution *models.TestExecution,
 		}
 	}
 
-	// Log execution command
-	if language == "python" {
-		e.logSystem(ctx, execution.ID, fmt.Sprintf("执行命令: python %s", absPath))
-	} else {
-		e.logSystem(ctx, execution.ID, fmt.Sprintf("执行命令: %s %s", interpreterPath, absPath))
+	// Write script content to temp file for execution
+	tmpDir, err := os.MkdirTemp("", "script_exec_*")
+	if err != nil {
+		e.logError(ctx, execution.ID, fmt.Sprintf("Failed to create temp dir: %v", err))
+		e.finishExecution(ctx, execution, 1, time.Since(now))
+		return
 	}
+	defer os.RemoveAll(tmpDir)
+
+	var ext string
+	switch language {
+	case "python":
+		ext = ".py"
+	case "shell":
+		ext = ".sh"
+	case "javascript":
+		ext = ".js"
+	default:
+		ext = ".txt"
+	}
+	tmpFile := filepath.Join(tmpDir, scriptName+ext)
+	if err := os.WriteFile(tmpFile, []byte(scriptContent), 0644); err != nil {
+		e.logError(ctx, execution.ID, fmt.Sprintf("Failed to write temp script file: %v", err))
+		e.finishExecution(ctx, execution, 1, time.Since(now))
+		return
+	}
+
+	// Log execution command
+	e.logSystem(ctx, execution.ID, fmt.Sprintf("使用临时文件: %s", tmpFile))
+	e.logSystem(ctx, execution.ID, fmt.Sprintf("执行命令: %s %s", interpreterPath, tmpFile))
 
 	// Create timeout context
 	execCtx, cancel := context.WithTimeout(ctx, e.defaultTimeout)
@@ -141,11 +123,11 @@ func (e *Executor) Execute(ctx context.Context, execution *models.TestExecution,
 	var cmd *exec.Cmd
 	switch language {
 	case "python":
-		cmd = exec.CommandContext(execCtx, "python", scriptPath)
+		cmd = exec.CommandContext(execCtx, "python", tmpFile)
 	case "shell":
-		cmd = exec.CommandContext(execCtx, "bash", scriptPath)
+		cmd = exec.CommandContext(execCtx, "bash", tmpFile)
 	case "javascript":
-		cmd = exec.CommandContext(execCtx, "node", scriptPath)
+		cmd = exec.CommandContext(execCtx, "node", tmpFile)
 	default:
 		e.logError(ctx, execution.ID, fmt.Sprintf("Unsupported language: %s", language))
 		e.finishExecution(ctx, execution, 1, time.Since(now))
@@ -214,13 +196,10 @@ func (e *Executor) Execute(ctx context.Context, execution *models.TestExecution,
 	}
 	e.logSystem(ctx, execution.ID, fmt.Sprintf("脚本执行完成，退出码: %d，状态: %s", exitCode, status))
 
-	// Check if rotation is needed
-	e.rotateLogIfNeeded()
-
 	e.finishExecution(ctx, execution, exitCode, duration)
 }
 
-// readOutput reads from a pipe and logs to both database and file
+// readOutput reads from a pipe and logs to database only (no file output)
 func (e *Executor) readOutput(ctx context.Context, executionID int, reader io.Reader, logType string, done chan struct{}) {
 	defer func() { done <- struct{}{} }()
 
@@ -235,13 +214,9 @@ func (e *Executor) readOutput(ctx context.Context, executionID int, reader io.Re
 			Content:     line,
 		}
 		e.executionLogRepo.Create(ctx, log)
-
-		// Write to execution-specific log file without [stdout] prefix (matching Python backend format)
-		e.writeExecutionLog(executionID, "STDOUT", line)
 	}
 }
 
-// logSystem logs a system message
 func (e *Executor) logSystem(ctx context.Context, executionID int, message string) {
 	log := &models.ExecutionLog{
 		ExecutionID: executionID,
@@ -249,10 +224,8 @@ func (e *Executor) logSystem(ctx context.Context, executionID int, message strin
 		Content:     message,
 	}
 	e.executionLogRepo.Create(ctx, log)
-	e.writeExecutionLog(executionID, "SYSTEM", message)
 }
 
-// logError logs an error message
 func (e *Executor) logError(ctx context.Context, executionID int, message string) {
 	log := &models.ExecutionLog{
 		ExecutionID: executionID,
@@ -260,112 +233,8 @@ func (e *Executor) logError(ctx context.Context, executionID int, message string
 		Content:     fmt.Sprintf("ERROR: %s", message),
 	}
 	e.executionLogRepo.Create(ctx, log)
-	e.writeExecutionLog(executionID, "ERROR", message)
 }
 
-// writeExecutionLog writes a log entry to the shared all.log file
-func (e *Executor) writeExecutionLog(executionID int, level string, message string) {
-	e.logMu.Lock()
-	defer e.logMu.Unlock()
-
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-
-	// Write to shared all.log
-	if e.logFile != nil {
-		fmt.Fprintf(e.logFile, "[%s] [execution_id=%d] [%s] %s\n", timestamp, executionID, level, message)
-		e.logFile.Sync()
-	}
-}
-
-// rotateLogIfNeeded checks log file size and rotates if necessary
-func (e *Executor) rotateLogIfNeeded() {
-	e.logMu.Lock()
-	defer e.logMu.Unlock()
-
-	if e.logFile == nil {
-		return
-	}
-
-	stat, err := e.logFile.Stat()
-	if err != nil {
-		return
-	}
-
-	if stat.Size() < maxLogFileSize {
-		return
-	}
-
-	// Close current file
-	e.logFile.Close()
-
-	// Rotate: all.log -> all.log.1.gz -> all.log.2.gz -> ...
-	// First, compress the current log
-	now := time.Now().Format("20060102_150405")
-	rotatedName := fmt.Sprintf("all.log.%s.gz", now)
-	rotatedPath := filepath.Join(e.logDir, rotatedName)
-
-	// Compress the existing all.log to rotated file
-	if err := e.compressFile(filepath.Join(e.logDir, logFileName), rotatedPath); err != nil {
-		fmt.Printf("Failed to compress log file: %v\n", err)
-		// Reopen original file for appending
-		e.logFile, _ = os.OpenFile(filepath.Join(e.logDir, logFileName), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-		return
-	}
-
-	// Delete oldest rotated files if exceeding maxLogFiles
-	e.cleanOldLogs()
-
-	// Reopen the main log file (truncate)
-	e.logFile, err = os.OpenFile(filepath.Join(e.logDir, logFileName), os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		fmt.Printf("Failed to reopen log file: %v\n", err)
-	}
-}
-
-// compressFile compresses a file using gzip
-func (e *Executor) compressFile(src, dst string) error {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcFile.Close()
-
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer dstFile.Close()
-
-	gzWriter := gzip.NewWriter(dstFile)
-	defer gzWriter.Close()
-
-	_, err = io.Copy(gzWriter, srcFile)
-	return err
-}
-
-// cleanOldLogs removes the oldest rotated log files exceeding maxLogFiles
-func (e *Executor) cleanOldLogs() {
-	pattern := filepath.Join(e.logDir, "all.log.*.gz")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return
-	}
-
-	if len(matches) <= maxLogFiles {
-		return
-	}
-
-	// Sort by name (which includes timestamp)
-	sort.Strings(matches)
-
-	// Delete oldest files
-	deleteCount := len(matches) - maxLogFiles
-	for i := 0; i < deleteCount; i++ {
-		os.Remove(matches[i])
-	}
-}
-
-// finishExecution updates execution with final status
 func (e *Executor) finishExecution(ctx context.Context, execution *models.TestExecution, exitCode int, duration time.Duration) {
 	now := time.Now()
 	execution.CompletedAt = &now
@@ -381,33 +250,27 @@ func (e *Executor) finishExecution(ctx context.Context, execution *models.TestEx
 
 	e.executionRepo.Update(ctx, execution)
 
-	// Update task counts if this execution belongs to a task
 	if execution.TaskID != nil {
 		if exitCode == 0 {
 			e.taskRepo.IncrementSuccess(ctx, *execution.TaskID)
 		} else {
 			e.taskRepo.IncrementFailed(ctx, *execution.TaskID)
 		}
-
-		// Check if all executions for this task are complete
 		e.checkAndCompleteTask(ctx, *execution.TaskID)
 	}
 }
 
-// checkAndCompleteTask checks if all executions are done and marks task as completed
 func (e *Executor) checkAndCompleteTask(ctx context.Context, taskID int) {
 	task, err := e.taskRepo.GetByID(ctx, taskID)
 	if err != nil {
 		return
 	}
 
-	// Get all executions for this task
 	executions, err := e.executionRepo.ListByTaskID(ctx, taskID)
 	if err != nil {
 		return
 	}
 
-	// Count completed and failed executions
 	completedCount := 0
 	for _, exec := range executions {
 		if exec.Status == "completed" || exec.Status == "failed" {
@@ -415,7 +278,6 @@ func (e *Executor) checkAndCompleteTask(ctx context.Context, taskID int) {
 		}
 	}
 
-	// If all executions are done, mark task as completed
 	if completedCount >= task.TotalCount {
 		e.taskRepo.Complete(ctx, taskID, "completed")
 	}

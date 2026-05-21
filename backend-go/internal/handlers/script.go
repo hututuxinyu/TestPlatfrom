@@ -2,32 +2,29 @@ package handlers
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/testplatform/backend/internal/config"
 	"github.com/testplatform/backend/internal/models"
 	"github.com/testplatform/backend/internal/repository"
 )
 
 type ScriptHandler struct {
 	scriptRepo *repository.ScriptRepository
-	config     *config.Config
 }
 
-func NewScriptHandler(scriptRepo *repository.ScriptRepository, cfg *config.Config) *ScriptHandler {
+func NewScriptHandler(scriptRepo *repository.ScriptRepository) *ScriptHandler {
 	return &ScriptHandler{
 		scriptRepo: scriptRepo,
-		config:     cfg,
 	}
 }
 
@@ -94,31 +91,17 @@ func (h *ScriptHandler) uploadSingleFile(c *gin.Context, file *multipart.FileHea
 	}
 	defer src.Close()
 
+	// Read file content into memory
+	content, err := io.ReadAll(src)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file content"})
+		return
+	}
+
 	// Calculate file hash
 	hash := sha256.New()
-	if _, err := io.Copy(hash, src); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate file hash"})
-		return
-	}
+	hash.Write(content)
 	fileHash := hex.EncodeToString(hash.Sum(nil))
-
-	// Reset file pointer
-	src.Seek(0, 0)
-
-	// Create upload directory if not exists
-	uploadDir := h.config.Executor.UploadDir
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
-		return
-	}
-
-	// Save file
-	filename := fmt.Sprintf("%s_%s", fileHash[:16], file.Filename)
-	filePath := filepath.Join(uploadDir, filename)
-	if err := c.SaveUploadedFile(file, filePath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
-		return
-	}
 
 	// Extract name from filename (remove extension)
 	name := strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))
@@ -128,16 +111,14 @@ func (h *ScriptHandler) uploadSingleFile(c *gin.Context, file *multipart.FileHea
 		Name:        name,
 		Description: req.Description,
 		Language:    language,
-		FilePath:    filePath,
 		FileSize:    file.Size,
 		FileHash:    fileHash,
+		Content:     string(content),
 		Tags:        req.Tags,
 		CreatedBy:   &userID,
 	}
 
 	if err := h.scriptRepo.Create(c.Request.Context(), script); err != nil {
-		// Clean up file if database insert fails
-		os.Remove(filePath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create script record"})
 		return
 	}
@@ -154,33 +135,17 @@ func (h *ScriptHandler) handleZipUpload(c *gin.Context, file *multipart.FileHead
 	}
 	defer src.Close()
 
-	// Create temp directory for extraction
-	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("upload_%d", file.Size))
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create temp directory"})
-		return
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Save zip file temporarily
-	zipPath := filepath.Join(tempDir, file.Filename)
-	if err := c.SaveUploadedFile(file, zipPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save zip file"})
+	// Read entire zip into memory
+	zipContent, err := io.ReadAll(src)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read zip file"})
 		return
 	}
 
-	// Open and extract zip
-	reader, err := zip.OpenReader(zipPath)
+	// Open zip from memory
+	reader, err := zip.NewReader(bytes.NewReader(zipContent), int64(len(zipContent)))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid zip file"})
-		return
-	}
-	defer reader.Close()
-
-	// Upload directory
-	uploadDir := h.config.Executor.UploadDir
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
 		return
 	}
 
@@ -217,13 +182,6 @@ func (h *ScriptHandler) handleZipUpload(c *gin.Context, file *multipart.FileHead
 		hash.Write(content)
 		fileHash := hex.EncodeToString(hash.Sum(nil))
 
-		// Save file
-		filename := fmt.Sprintf("%s_%s", fileHash[:16], filepath.Base(zipFile.Name))
-		filePath := filepath.Join(uploadDir, filename)
-		if err := os.WriteFile(filePath, content, 0644); err != nil {
-			continue
-		}
-
 		// Extract name from filename (remove extension)
 		name := strings.TrimSuffix(filepath.Base(zipFile.Name), filepath.Ext(zipFile.Name))
 		description := req.Description
@@ -231,20 +189,19 @@ func (h *ScriptHandler) handleZipUpload(c *gin.Context, file *multipart.FileHead
 			description = fmt.Sprintf("Extracted from %s", file.Filename)
 		}
 
-		// Create script record
+		// Create script record with content stored in database
 		script := &models.TestScript{
 			Name:        name,
 			Description: description,
 			Language:    language,
-			FilePath:    filePath,
 			FileSize:    int64(len(content)),
 			FileHash:    fileHash,
+			Content:     string(content),
 			Tags:        req.Tags,
 			CreatedBy:   &userID,
 		}
 
 		if err := h.scriptRepo.Create(c.Request.Context(), script); err != nil {
-			os.Remove(filePath)
 			continue
 		}
 
@@ -257,12 +214,11 @@ func (h *ScriptHandler) handleZipUpload(c *gin.Context, file *multipart.FileHead
 	}
 
 	SuccessResponse(c, gin.H{
-		"message":     fmt.Sprintf("Uploaded %d scripts from archive", len(scripts)),
-		"scripts":    scripts,
-		"total":      len(scripts),
+		"message":  fmt.Sprintf("Uploaded %d scripts from archive", len(scripts)),
+		"scripts": scripts,
+		"total":   len(scripts),
 	})
 }
-
 // List handles listing scripts
 func (h *ScriptHandler) List(c *gin.Context) {
 	language := c.Query("language")
@@ -315,7 +271,6 @@ func (h *ScriptHandler) Get(c *gin.Context) {
 	SuccessResponse(c, script)
 }
 
-// GetContent handles getting script file content
 func (h *ScriptHandler) GetContent(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -329,13 +284,7 @@ func (h *ScriptHandler) GetContent(c *gin.Context) {
 		return
 	}
 
-	content, err := os.ReadFile(script.FilePath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read script file"})
-		return
-	}
-
-	SuccessResponse(c, gin.H{"content": string(content)})
+	SuccessResponse(c, gin.H{"content": script.Content})
 }
 
 // Update handles updating a script
@@ -372,17 +321,10 @@ func (h *ScriptHandler) Update(c *gin.Context) {
 	SuccessResponse(c, script)
 }
 
-// Delete handles deleting a script
 func (h *ScriptHandler) Delete(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid script ID"})
-		return
-	}
-
-	script, err := h.scriptRepo.GetByID(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Script not found"})
 		return
 	}
 
@@ -391,9 +333,6 @@ func (h *ScriptHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	// Clean up file
-	os.Remove(script.FilePath)
-
 	SuccessResponse(c, gin.H{"message": "Script deleted successfully"})
 }
 
@@ -401,7 +340,6 @@ type BatchDeleteRequest struct {
 	ScriptIDs []int `json:"script_ids" binding:"required"`
 }
 
-// BatchDelete handles batch deletion of scripts
 func (h *ScriptHandler) BatchDelete(c *gin.Context) {
 	var req BatchDeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -416,22 +354,9 @@ func (h *ScriptHandler) BatchDelete(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// Get scripts to delete files
-	scripts, err := h.scriptRepo.ListByIDs(ctx, req.ScriptIDs)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get scripts"})
-		return
-	}
-
-	// Delete from database
 	if err := h.scriptRepo.DeleteByIDs(ctx, req.ScriptIDs); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete scripts"})
 		return
-	}
-
-	// Clean up files
-	for _, script := range scripts {
-		os.Remove(script.FilePath)
 	}
 
 	SuccessResponse(c, gin.H{

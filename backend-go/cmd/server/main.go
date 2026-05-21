@@ -80,7 +80,6 @@ func main() {
 		taskRepo,
 		configRepo,
 		cfg.Executor.MaxConcurrent,
-		cfg.Executor.LogDir,
 		cfg.Executor.DefaultTimeout,
 	)
 
