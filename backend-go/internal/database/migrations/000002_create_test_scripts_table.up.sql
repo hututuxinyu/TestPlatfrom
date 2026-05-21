@@ -18,4 +18,3 @@ CREATE TABLE IF NOT EXISTS test_scripts (
 CREATE INDEX idx_test_scripts_language ON test_scripts(language);
 CREATE INDEX idx_test_scripts_created_by ON test_scripts(created_by);
 CREATE INDEX idx_test_scripts_created_at ON test_scripts(created_at DESC);
-CREATE UNIQUE INDEX idx_test_scripts_name ON test_scripts(name);
