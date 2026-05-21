@@ -19,13 +19,15 @@ func NewTaskRepository(db *sql.DB) *TaskRepository {
 
 // Create creates a new test task
 func (r *TaskRepository) Create(ctx context.Context, task *models.TestTask) error {
+	task.CreatedAt = time.Now()
+
 	query := `
-		INSERT INTO test_tasks (task_type, suite_id, suite_name, status, total_count, success_count, failed_count, created_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO test_tasks (task_type, suite_id, suite_name, status, total_count, success_count, failed_count, created_by, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	result, err := r.db.ExecContext(ctx, query,
 		task.TaskType, task.SuiteID, task.SuiteName, task.Status, task.TotalCount,
-		task.SuccessCount, task.FailedCount, task.CreatedBy,
+		task.SuccessCount, task.FailedCount, task.CreatedBy, task.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create task: %w", err)
@@ -36,13 +38,6 @@ func (r *TaskRepository) Create(ctx context.Context, task *models.TestTask) erro
 		return fmt.Errorf("failed to get last insert id: %w", err)
 	}
 	task.ID = int(id)
-
-	// Get created_at
-	query = `SELECT created_at FROM test_tasks WHERE id = ?`
-	err = r.db.QueryRowContext(ctx, query, task.ID).Scan(&task.CreatedAt)
-	if err != nil {
-		return fmt.Errorf("failed to get timestamp: %w", err)
-	}
 
 	return nil
 }

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/spf13/viper"
@@ -118,7 +119,7 @@ func setDefaults() {
 	viper.SetDefault("JWT_EXPIRATION", 24*time.Hour)
 
 	// Executor defaults
-	viper.SetDefault("MAX_CONCURRENT_EXECUTIONS", 100)
+	viper.SetDefault("MAX_CONCURRENT_EXECUTIONS", runtime.NumCPU()*2)
 	viper.SetDefault("DEFAULT_TIMEOUT", 600*time.Second)
 
 	// Logging defaults

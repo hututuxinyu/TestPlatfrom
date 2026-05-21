@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/testplatform/backend/internal/models"
 )
@@ -18,12 +19,14 @@ func NewExecutionRepository(db *sql.DB) *ExecutionRepository {
 
 // Create creates a new test execution
 func (r *ExecutionRepository) Create(ctx context.Context, execution *models.TestExecution) error {
+	execution.CreatedAt = time.Now()
+
 	query := `
-		INSERT INTO test_executions (task_id, script_id, script_uuid, script_name, status, created_by)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO test_executions (task_id, script_id, script_uuid, script_name, status, created_by, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 	result, err := r.db.ExecContext(ctx, query,
-		execution.TaskID, execution.ScriptID, execution.ScriptUUID, execution.ScriptName, execution.Status, execution.CreatedBy,
+		execution.TaskID, execution.ScriptID, execution.ScriptUUID, execution.ScriptName, execution.Status, execution.CreatedBy, execution.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create execution: %w", err)
@@ -34,13 +37,6 @@ func (r *ExecutionRepository) Create(ctx context.Context, execution *models.Test
 		return fmt.Errorf("failed to get last insert id: %w", err)
 	}
 	execution.ID = int(id)
-
-	// Get created_at
-	query = `SELECT created_at FROM test_executions WHERE id = ?`
-	err = r.db.QueryRowContext(ctx, query, execution.ID).Scan(&execution.CreatedAt)
-	if err != nil {
-		return fmt.Errorf("failed to get timestamp: %w", err)
-	}
 
 	return nil
 }

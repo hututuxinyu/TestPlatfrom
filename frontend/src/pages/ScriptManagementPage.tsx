@@ -196,12 +196,8 @@ export default function ScriptManagementPage() {
     setBatchExecuting(true);
     try {
       const response = await apiService.executeSuite(suiteId!);
-      if (response.code === 0 && response.data) {
-        const { total, succeeded, failed } = response.data;
-        message.success(`执行完成: 成功 ${succeeded}/${total}`);
-        if (failed > 0) {
-          message.warning(`${failed} 个脚本执行失败`);
-        }
+      if (response.code === 0) {
+        message.success('执行任务已创建，请到执行管理页面查看');
         setTimeout(() => {
           navigate('/executions');
         }, 1500);

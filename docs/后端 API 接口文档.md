@@ -447,7 +447,7 @@ Token 通过 `POST /api/v1/auth/login` 获取，默认过期时间 24 小时。
 
 ### GET /api/v1/executions/:id/logs
 
-获取执行日志，按 `created_at` 升序排列。
+获取执行日志，按时间顺序排列的完整文本。
 
 **路径参数：** `id` - 执行记录 ID
 
@@ -458,26 +458,18 @@ Token 通过 `POST /api/v1/auth/login` 获取，默认过期时间 24 小时。
   "code": 0,
   "message": "success",
   "data": {
-    "logs": [
-      {
-        "id": 1,
-        "execution_id": 1,
-        "log_type": "stdout",
-        "content": "log line text",
-        "created_at": "2024-01-01T00:00:00Z"
-      }
-    ]
+    "logs": "[system] 开始执行脚本: test.py\n[stdout] hello world\n[stderr] warning: ...\n[system] 脚本执行完成，退出码: 0，状态: completed\n"
   }
 }
 ```
 
-`log_type` 取值：`stdout` | `stderr` | `system`
+日志前缀说明：`[system]` 系统日志 | `[stdout]` 标准输出 | `[stderr]` 错误输出
 
 ---
 
 ### DELETE /api/v1/executions/:id
 
-删除执行记录（会级联删除关联的日志）。
+删除执行记录。
 
 **路径参数：** `id` - 执行记录 ID
 
@@ -971,18 +963,10 @@ Content-Disposition: attachment; filename="<suite-name>.zip"
 | `started_at` | DateTime / null | 开始时间 |
 | `completed_at` | DateTime / null | 完成时间 |
 | `duration_seconds` | Float / null | 执行耗时 |
+| `log_content` | String | 完整执行日志（含 system/stdout/stderr） |
 | `created_by` | Int / null | 创建者 ID |
 | `created_at` | DateTime | 创建时间 |
 
-### ExecutionLog
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | Int | 主键 |
-| `execution_id` | Int | 关联执行 ID |
-| `log_type` | String | stdout / stderr / system |
-| `content` | String | 日志内容 |
-| `created_at` | DateTime | 创建时间 |
 
 ### GlobalConfig
 

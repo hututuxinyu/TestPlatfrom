@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/testplatform/backend/internal/models"
 )
@@ -18,11 +19,15 @@ func NewSuiteRepository(db *sql.DB) *SuiteRepository {
 
 // Create creates a new test suite
 func (r *SuiteRepository) Create(ctx context.Context, suite *models.TestSuite) error {
+	now := time.Now()
+	suite.CreatedAt = now
+	suite.UpdatedAt = now
+
 	query := `
-		INSERT INTO test_suites (name, created_by)
-		VALUES (?, ?)
+		INSERT INTO test_suites (name, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?)
 	`
-	result, err := r.db.ExecContext(ctx, query, suite.Name, suite.CreatedBy)
+	result, err := r.db.ExecContext(ctx, query, suite.Name, suite.CreatedBy, suite.CreatedAt, suite.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to create suite: %w", err)
 	}
@@ -32,13 +37,6 @@ func (r *SuiteRepository) Create(ctx context.Context, suite *models.TestSuite) e
 		return fmt.Errorf("failed to get last insert id: %w", err)
 	}
 	suite.ID = int(id)
-
-	// Get timestamps
-	query = `SELECT created_at, updated_at FROM test_suites WHERE id = ?`
-	err = r.db.QueryRowContext(ctx, query, suite.ID).Scan(&suite.CreatedAt, &suite.UpdatedAt)
-	if err != nil {
-		return fmt.Errorf("failed to get timestamps: %w", err)
-	}
 
 	return nil
 }
