@@ -144,7 +144,7 @@ type SuiteSummary struct {
 	LatestUpload string `json:"latest_upload"`
 }
 
-// GetSummary retrieves suite with aggregated script info
+// GetSummary retrieves suite with aggregated script info (only test_case scripts)
 func (r *SuiteRepository) GetSummary(ctx context.Context, id int) (*SuiteSummary, error) {
 	query := `
 		SELECT
@@ -160,7 +160,7 @@ func (r *SuiteRepository) GetSummary(ctx context.Context, id int) (*SuiteSummary
 			), 0) as total_lines,
 			MAX(sc.created_at) as latest_upload
 		FROM test_suites s
-		LEFT JOIN test_scripts sc ON s.id = sc.suite_id
+		LEFT JOIN test_scripts sc ON s.id = sc.suite_id AND sc.script_type = 'test_case'
 		WHERE s.id = ?
 		GROUP BY s.id, s.name
 	`
@@ -178,7 +178,7 @@ func (r *SuiteRepository) GetSummary(ctx context.Context, id int) (*SuiteSummary
 	return summary, nil
 }
 
-// ListSummaries retrieves all suites with aggregated script info
+// ListSummaries retrieves all suites with aggregated script info (only test_case scripts)
 func (r *SuiteRepository) ListSummaries(ctx context.Context) ([]*SuiteSummary, error) {
 	query := `
 		SELECT
@@ -194,7 +194,7 @@ func (r *SuiteRepository) ListSummaries(ctx context.Context) ([]*SuiteSummary, e
 			), 0) as total_lines,
 			MAX(sc.created_at) as latest_upload
 		FROM test_suites s
-		LEFT JOIN test_scripts sc ON s.id = sc.suite_id
+		LEFT JOIN test_scripts sc ON s.id = sc.suite_id AND sc.script_type = 'test_case'
 		GROUP BY s.id, s.name
 		ORDER BY s.created_at DESC
 	`

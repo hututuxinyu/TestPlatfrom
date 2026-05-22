@@ -26,7 +26,8 @@ type TestScript struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	Language    string    `json:"language"`
-	FilePath    string    `json:"file_path"`
+	FilePath    string    `json:"file_path"`     // Original relative path in zip (e.g., "test/lib/browsergw_client.py")
+	ScriptType  string    `json:"script_type"`   // "test_case" or "lib_file"
 	FileSize    int64     `json:"file_size"`
 	FileHash    string    `json:"file_hash"`
 	Content     string    `json:"content"`
