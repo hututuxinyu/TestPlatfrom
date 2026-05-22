@@ -78,14 +78,15 @@ backend-go/
 ├── internal/
 │   ├── auth/             # 认证 (JWT)
 │   ├── config/           # 配置管理
-│   ├── database/         # 数据库连接
+│   ├── database/         # 数据库连接和迁移
 │   ├── executor/         # 脚本执行器
 │   ├── handlers/         # HTTP 处理器
-│   ├── middleware/        # 中间件
+│   ├── middleware/       # 中间件
 │   ├── models/           # 数据模型
 │   ├── repository/       # 数据访问层
 │   └── server/           # HTTP 服务器
-├── migrations/           # 数据库迁移
+├── data/                 # 数据目录
+├── logs/                 # 日志目录
 ├── .env                  # 环境配置
 ├── docker-compose.yml    # Docker Compose
 └── Dockerfile
@@ -93,7 +94,7 @@ backend-go/
 
 ## 数据库迁移
 
-迁移在服务启动时自动执行。迁移文件位于 `migrations/` 目录。
+数据库表在服务启动时自动创建和更新。迁移逻辑位于 `internal/database/migrate.go`。
 
 ## 默认账号
 

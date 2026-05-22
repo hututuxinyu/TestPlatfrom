@@ -151,7 +151,13 @@ func (r *SuiteRepository) GetSummary(ctx context.Context, id int) (*SuiteSummary
 			s.id,
 			s.name,
 			COUNT(sc.id) as script_count,
-			COALESCE(SUM(LENGTH(sc.file_path)), 0) as total_lines,
+			COALESCE(SUM(
+				CASE 
+					WHEN sc.content IS NOT NULL AND sc.content != '' 
+					THEN LENGTH(sc.content) - LENGTH(REPLACE(sc.content, '\n', '')) + 1
+					ELSE 0
+				END
+			), 0) as total_lines,
 			MAX(sc.created_at) as latest_upload
 		FROM test_suites s
 		LEFT JOIN test_scripts sc ON s.id = sc.suite_id
@@ -179,7 +185,13 @@ func (r *SuiteRepository) ListSummaries(ctx context.Context) ([]*SuiteSummary, e
 			s.id,
 			s.name,
 			COUNT(sc.id) as script_count,
-			COALESCE(SUM(LENGTH(sc.file_path)), 0) as total_lines,
+			COALESCE(SUM(
+				CASE 
+					WHEN sc.content IS NOT NULL AND sc.content != '' 
+					THEN LENGTH(sc.content) - LENGTH(REPLACE(sc.content, '\n', '')) + 1
+					ELSE 0
+				END
+			), 0) as total_lines,
 			MAX(sc.created_at) as latest_upload
 		FROM test_suites s
 		LEFT JOIN test_scripts sc ON s.id = sc.suite_id
