@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# TC_SBG_Func_GIDS_003_001.py
+# 测试用例: 客户端事件上报接口测试
+
+import requests
+import json
+import sys
+import os
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+GIDS_ADDR = os.getenv('GIDS_ADDR', 'http://127.0.0.1:9090')
+DEVICE_WHITE_IMEI = os.getenv('DEVICE_WHITE_IMEI', '6258412454025411')
+
+def test_send_client_event_success():
+    """步骤1: 正常上报客户端事件"""
+    print("[INFO] ========== 测试步骤1: 正常上报客户端事件 ==========")
+    print(f"[INFO] 接口: /app-api/center/public/client/sendClientEvent")
+    
+    test_data = {
+        "hsman": "test_manufacturer",
+        "hstype": "test_model",
+        "appType": "1",
+        "imei": DEVICE_WHITE_IMEI,
+        "imsi": "685101555652111",
+        "type": "login"
+    }
+    
+    try:
+        response = requests.post(
+            f"{GIDS_ADDR}/app-api/center/public/client/sendClientEvent",
+            json=test_data,
+            timeout=30,
+            verify=False
+        )
+        
+        print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[INFO] 响应数据: {response.text}")
+        
+        resp_json = response.json()
+        
+        if response.status_code == 200 and resp_json.get('code') == 200:
+            print("[PASS] 客户端事件上报成功")
+            return True
+        else:
+            print(f"[FAIL] 事件上报失败: {resp_json.get('message', 'N/A')}")
+            return False
+            
+    except requests.exceptions.ConnectionError:
+        print(f"[ERROR] 连接失败")
+        return False
+    except Exception as e:
+        print(f"[ERROR] 请求异常: {str(e)}")
+        return False
+
+def test_send_client_event_invalid_imei():
+    """步骤2: 非白名单IMEI上报"""
+    print("\n[INFO] ========== 测试步骤2: 非白名单IMEI上报事件 ==========")
+    
+    test_data = {
+        "hsman": "test_manufacturer",
+        "hstype": "test_model",
+        "appType": "1",
+        "imei": "999999999999999",
+        "imsi": "685101555652111",
+        "type": "login"
+    }
+    
+    try:
+        response = requests.post(
+            f"{GIDS_ADDR}/app-api/center/public/client/sendClientEvent",
+            json=test_data,
+            timeout=30,
+            verify=False
+        )
+        
+        print(f"[RESPONSE] Status: {response.status_code}")
+        
+        resp_json = response.json()
+        
+        if resp_json.get('code') == 200 and 'record success' in resp_json.get('message', '').lower():
+            print("[FAIL] BUG: 非白名单IMEI居然上报成功!")
+            return False
+        else:
+            print("[PASS] 正确拒绝非白名单IMEI")
+            return True
+            
+    except requests.exceptions.ConnectionError:
+        print(f"[ERROR] 连接失败")
+        return False
+    except Exception as e:
+        print(f"[ERROR] 请求异常: {str(e)}")
+        return False
+
+def test_send_client_event_missing_fields():
+    """步骤3: 缺失必选字段"""
+    print("\n[INFO] ========== 测试步骤3: 缺失IMEI字段 ==========")
+    
+    test_data = {
+        "hsman": "test_manufacturer",
+        "hstype": "test_model",
+        "appType": "1",
+        "imsi": "685101555652111",
+        "type": "login"
+    }
+    
+    try:
+        response = requests.post(
+            f"{GIDS_ADDR}/app-api/center/public/client/sendClientEvent",
+            json=test_data,
+            timeout=30,
+            verify=False
+        )
+        
+        print(f"[RESPONSE] Status: {response.status_code}")
+        
+        if response.status_code >= 400:
+            print("[PASS] 正确拒绝缺失IMEI")
+            return True
+        else:
+            resp_json = response.json()
+            if resp_json.get('code') != 200:
+                print("[PASS] 正确拒绝缺失IMEI")
+                return True
+            else:
+                print("[FAIL] BUG: 缺失IMEI居然成功了")
+                return False
+            
+    except requests.exceptions.ConnectionError:
+        print(f"[ERROR] 连接失败")
+        return False
+    except Exception as e:
+        print(f"[ERROR] 请求异常: {str(e)}")
+        return False
+
+def test_send_app_use_times_event():
+    """步骤4: 应用使用时长事件上报"""
+    print("\n[INFO] ========== 测试步骤4: 应用使用时长事件上报 ==========")
+    print(f"[INFO] 接口: /app-api/center/public/client/sendAppUseTimesEvent")
+    
+    test_data = {
+        "useTimes": "3600",
+        "hsman": "test_manufacturer",
+        "hstype": "test_model",
+        "exttype": "default",
+        "appType": "1",
+        "appId": "test_app_001",
+        "scheight": "1920",
+        "scwidth": "1080",
+        "imei": DEVICE_WHITE_IMEI,
+        "imsi": "685101555652111",
+        "playMode": "1"
+    }
+    
+    try:
+        response = requests.post(
+            f"{GIDS_ADDR}/app-api/center/public/client/sendAppUseTimesEvent",
+            json=test_data,
+            timeout=30,
+            verify=False
+        )
+        
+        print(f"[RESPONSE] Status: {response.status_code}")
+        
+        resp_json = response.json()
+        
+        if response.status_code == 200 and resp_json.get('code') == 200:
+            print("[PASS] 应用使用时长事件上报成功")
+            return True
+        else:
+            print(f"[FAIL] 事件上报失败")
+            return False
+            
+    except requests.exceptions.ConnectionError:
+        print(f"[ERROR] 连接失败")
+        return False
+    except Exception as e:
+        print(f"[ERROR] 请求异常: {str(e)}")
+        return False
+
+def main():
+    print("""
+==================================================================
+    客户端事件上报接口测试
+    TC_SBG_Func_GIDS_003_001
+==================================================================
+    """)
+    print(f"[INFO] GIDS地址: {GIDS_ADDR}")
+    print(f"[INFO] 白名单IMEI: {DEVICE_WHITE_IMEI}")
+    print("")
+    
+    test_results = []
+    
+    result1 = test_send_client_event_success()
+    test_results.append(("步骤1: 正常上报客户端事件", result1))
+    
+    result2 = test_send_client_event_invalid_imei()
+    test_results.append(("步骤2: 非白名单IMEI上报", result2))
+    
+    result3 = test_send_client_event_missing_fields()
+    test_results.append(("步骤3: 缺失IMEI字段", result3))
+    
+    result4 = test_send_app_use_times_event()
+    test_results.append(("步骤4: 应用使用时长事件", result4))
+    
+    print("\n[INFO] ========== 测试结果汇总 ==========")
+    for step, result in test_results:
+        status = "[PASS]" if result else "[FAIL]"
+        print(f"{status} {step}")
+    
+    all_passed = all(result for _, result in test_results)
+    print(f"\n{'[SUCCESS]' if all_passed else '[FAILED]'} ========== 测试完成 ==========")
+    
+    return 0 if all_passed else 1
+
+if __name__ == "__main__":
+    sys.exit(main())
