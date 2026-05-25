@@ -7,6 +7,8 @@ import requests
 import json
 import sys
 import os
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ========== 参数配置 (支持环境变量) ==========
 GIDS_ADDR = os.getenv('GIDS_ADDR', 'http://localhost:9090')
@@ -18,21 +20,21 @@ TEST_DATA_FULL = {
     "imei": "6258412454025411",
     "manufacturer": "xxx manufacturer",
     "model": "xx model",
-    "appType": 1,
+    "appType": "1",
     "extendModel": "default",
     "country": "default",
     "platform": "default",
-    "width": 240,
-    "height": 320,
+    "width": "240",
+    "height": "320",
     "mcc": "460",
     "mnc": "00x",
     "lac": "100",
     "ci": "5.21",
-    "rxlev": -72,
-    "totalKb": 1424122,
-    "freeKb": 1424122,
+    "rxlev": "-72",
+    "totalKb": "1424122",
+    "freeKb": "1424122",
     "clientLanguage": "en",
-    "deviceType": 1000
+    "deviceType": "1000"
 }
 
 # 必选参数(根据接口文档定义)
@@ -50,7 +52,8 @@ def test_full_params():
         response = requests.post(
             f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
             json=TEST_DATA_FULL,
-            timeout=30
+            timeout=30,
+            verify=False
         )
 
         print(f"[INFO] 响应状态码: {response.status_code}")
@@ -93,7 +96,8 @@ def test_required_only():
         response = requests.post(
             f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
             json=required_data,
-            timeout=30
+            timeout=30,
+            verify=False
         )
 
         print(f"[INFO] 响应状态码: {response.status_code}")
@@ -148,7 +152,8 @@ def test_required_plus_one():
         response = requests.post(
             f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
             json=required_plus_one,
-            timeout=30
+            timeout=30,
+            verify=False
         )
 
         print(f"[INFO] 响应状态码: {response.status_code}")
