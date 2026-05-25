@@ -94,7 +94,11 @@ func (h *ExecutionHandler) Start(c *gin.Context) {
 	// Update task status to running
 	h.taskRepo.UpdateStatus(context.Background(), task.ID, "running")
 
-	go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language, script.FilePath)
+	var libFiles []*models.TestScript
+	if script.SuiteID != nil {
+		libFiles = h.scriptRepo.GetLibFilesBySuiteID(c.Request.Context(), *script.SuiteID)
+	}
+	go h.executor.ExecuteWithLibs(context.Background(), execution, script, libFiles)
 
 SuccessResponse(c, execution)
 }
@@ -164,7 +168,11 @@ func (h *ExecutionHandler) BatchStart(c *gin.Context) {
 			continue
 		}
 
-		go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language, script.FilePath)
+		var libFiles []*models.TestScript
+		if script.SuiteID != nil {
+			libFiles = h.scriptRepo.GetLibFilesBySuiteID(ctx, *script.SuiteID)
+		}
+		go h.executor.ExecuteWithLibs(context.Background(), execution, script, libFiles)
 		executions = append(executions, execution)
 	}
 
@@ -224,6 +232,8 @@ func (h *ExecutionHandler) BatchExecuteAll(c *gin.Context) {
 		Error   string `json:"error"`
 	}
 
+	libFilesCache := make(map[int][]*models.TestScript)
+
 	for _, script := range scripts {
 		execution := &models.TestExecution{
 			TaskID:     &task.ID,
@@ -242,7 +252,16 @@ func (h *ExecutionHandler) BatchExecuteAll(c *gin.Context) {
 			continue
 		}
 
-		go h.executor.Execute(context.Background(), execution, script.Name, script.Content, script.Language, script.FilePath)
+		var libFiles []*models.TestScript
+		if script.SuiteID != nil {
+			if cached, ok := libFilesCache[*script.SuiteID]; ok {
+				libFiles = cached
+			} else {
+				libFiles = h.scriptRepo.GetLibFilesBySuiteID(ctx, *script.SuiteID)
+				libFilesCache[*script.SuiteID] = libFiles
+			}
+		}
+		go h.executor.ExecuteWithLibs(context.Background(), execution, script, libFiles)
 		executions = append(executions, execution)
 	}
 

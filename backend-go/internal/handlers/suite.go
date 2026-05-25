@@ -498,20 +498,7 @@ func (h *SuiteHandler) ExecuteSuite(c *gin.Context) {
 		return
 	}
 
-	// Get all scripts including lib files for directory structure restoration
-	allScripts, err := h.scriptRepo.ListAllBySuiteID(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list all scripts"})
-		return
-	}
-
-	// Separate lib files for passing to executor
-	var libFiles []*models.TestScript
-	for _, script := range allScripts {
-		if script.ScriptType == "lib_file" {
-			libFiles = append(libFiles, script)
-		}
-	}
+	libFiles := h.scriptRepo.GetLibFilesBySuiteID(c.Request.Context(), id)
 
 	// Get user ID from context
 	userID, _ := c.Get("user_id")
