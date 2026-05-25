@@ -14,6 +14,7 @@ export interface ScriptResponse {
   name: string;
   description?: string;
   file_path: string;
+  script_type: string;  // 'test_case' or 'lib_file'
   file_size: number;
   file_hash: string;
   suite_id?: number;

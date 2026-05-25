@@ -116,7 +116,7 @@ export default function LoginPage() {
         {/* 登录表单 */}
         <Form
           name="login"
-          initialValues={{ username: 'admin', password: 'admin123' }}
+          initialValues={{ username: 'admin', password: '' }}
           onFinish={onFinish}
           size="large"
         >

@@ -153,7 +153,8 @@ func (h *SuiteHandler) handleZipUpload(c *gin.Context, suite *models.TestSuite, 
 		return
 	}
 
-	var scripts []*models.TestScript
+	var testScripts []*models.TestScript
+	var libScripts []*models.TestScript
 	validExtensions := map[string]string{
 		".py":  "python",
 		".sh":  "shell",
@@ -195,36 +196,64 @@ func (h *SuiteHandler) handleZipUpload(c *gin.Context, suite *models.TestSuite, 
 		// Extract name from filename (remove extension)
 		name := strings.TrimSuffix(filepath.Base(zipFile.Name), filepath.Ext(zipFile.Name))
 
+		// Determine script type based on path
+		scriptType := "test_case"
+		filePath := zipFile.Name
+		if isLibFile(zipFile.Name) {
+			scriptType = "lib_file"
+		}
+
 		// Create script record with content stored in database
 		script := &models.TestScript{
-			UUID:      scriptUUID,
-			Name:      name,
-			Language:  language,
-			FileSize:  int64(len(content)),
-			FileHash:  fileHash,
-			Content:   string(content),
-			SuiteID:   &suite.ID,
-			CreatedBy: &userID,
+			UUID:        scriptUUID,
+			Name:        name,
+			Language:    language,
+			FilePath:    filePath,
+			ScriptType:  scriptType,
+			FileSize:    int64(len(content)),
+			FileHash:    fileHash,
+			Content:     string(content),
+			SuiteID:     &suite.ID,
+			CreatedBy:   &userID,
 		}
 
 		if err := h.scriptRepo.Create(c.Request.Context(), script); err != nil {
 			continue
 		}
 
-		scripts = append(scripts, script)
+		if scriptType == "test_case" {
+			testScripts = append(testScripts, script)
+		} else {
+			libScripts = append(libScripts, script)
+		}
 	}
 
-	if len(scripts) == 0 {
+	if len(testScripts) == 0 {
 		h.suiteRepo.Delete(c.Request.Context(), suite.ID)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No valid script files found in zip"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No valid test script files found in zip"})
 		return
 	}
 
 	SuccessResponse(c, gin.H{
-		"suite":   suite,
-		"scripts": scripts,
-		"total":   len(scripts),
+		"suite":        suite,
+		"scripts":      testScripts,
+		"lib_files":    len(libScripts),
+		"total":        len(testScripts),
 	})
+}
+
+// isLibFile checks if a file path indicates it's a library file
+func isLibFile(path string) bool {
+	// Normalize path separators
+	normalizedPath := strings.ReplaceAll(path, "\\", "/")
+	
+	// Check if path contains /lib/ directory or starts with lib/
+	if strings.Contains(normalizedPath, "/lib/") ||
+		strings.HasPrefix(normalizedPath, "lib/") ||
+		strings.HasPrefix(normalizedPath, "test/lib/") {
+		return true
+	}
+	return false
 }
 
 // Update handles updating a suite (rename)
@@ -457,15 +486,31 @@ func (h *SuiteHandler) ExecuteSuite(c *gin.Context) {
 		return
 	}
 
-	scripts, err := h.scriptRepo.ListBySuiteID(c.Request.Context(), id)
+	// Get test case scripts (excluding lib files)
+	testScripts, err := h.scriptRepo.ListBySuiteID(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list scripts"})
 		return
 	}
 
-	if len(scripts) == 0 {
+	if len(testScripts) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Suite has no scripts to execute"})
 		return
+	}
+
+	// Get all scripts including lib files for directory structure restoration
+	allScripts, err := h.scriptRepo.ListAllBySuiteID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list all scripts"})
+		return
+	}
+
+	// Separate lib files for passing to executor
+	var libFiles []*models.TestScript
+	for _, script := range allScripts {
+		if script.ScriptType == "lib_file" {
+			libFiles = append(libFiles, script)
+		}
 	}
 
 	// Get user ID from context
@@ -478,7 +523,7 @@ func (h *SuiteHandler) ExecuteSuite(c *gin.Context) {
 		SuiteID:     &suite.ID,
 		SuiteName:   suite.Name,
 		Status:      "pending",
-		TotalCount:  len(scripts),
+		TotalCount:  len(testScripts),
 		SuccessCount: 0,
 		FailedCount:  0,
 		CreatedBy:   &userIDInt,
@@ -491,7 +536,7 @@ func (h *SuiteHandler) ExecuteSuite(c *gin.Context) {
 
 	// Create execution records and start executions
 	ctx := context.Background()
-	for _, script := range scripts {
+	for _, script := range testScripts {
 		// Create execution record
 		execution := &models.TestExecution{
 			TaskID:     &task.ID,
@@ -506,19 +551,20 @@ func (h *SuiteHandler) ExecuteSuite(c *gin.Context) {
 			continue
 		}
 
-		go h.executor.Execute(ctx, execution, script.Name, script.Content, script.Language, script.FilePath)
+		go h.executor.ExecuteWithLibs(ctx, execution, script, libFiles)
 	}
 
 	// Update task status to running
 	h.taskRepo.UpdateStatus(ctx, task.ID, "running")
 
 	SuccessResponse(c, gin.H{
-		"message":      fmt.Sprintf("Suite execution started with %d scripts", len(scripts)),
+		"message":      fmt.Sprintf("Suite execution started with %d scripts", len(testScripts)),
 		"suite_id":     suite.ID,
 		"suite_name":   suite.Name,
-		"script_count": len(scripts),
+		"script_count": len(testScripts),
+		"lib_count":    len(libFiles),
 		"task_id":      task.ID,
-		"total":        len(scripts),
+		"total":        len(testScripts),
 		"succeeded":    0,
 		"failed":       0,
 	})

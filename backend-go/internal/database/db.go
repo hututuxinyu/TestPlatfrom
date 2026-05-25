@@ -23,7 +23,8 @@ var db *sql.DB
 
 // InitDB initializes the database connection pool
 func InitDB(cfg Config) error {
-	// MySQL DSN format: user:password@tcp(host:port)/dbname?parseTime=true&charset=utf8mb4
+	// MySQL DSN format: user:password@tcp(host:port)/dbname?parseTime=true&charset=utf8mb4&loc=Local
+	// loc=Local ensures time values are parsed/written using the local timezone consistently
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&loc=Local",
 		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Database,
