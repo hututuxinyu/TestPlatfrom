@@ -5,7 +5,7 @@ TC_SBG_Func_E2E_001.py
 测试用例: 云手机完整E2E流程测试
 目标: 验证云手机完整端到端流程，模拟mobile项目的BrowserContext行为
 覆盖: 三步登录 -> 控制通道连接 -> 媒体通道连接 -> 控制操作 -> 心跳保活 -> 事件上报 -> 长时间稳定性 -> 断开连接
-参考: D:\Code\SBG-Github\SBG\SBG\mobile\src\main\java\com\huawei\mobile\BrowserContext.java
+参考: D:\\Code\\SBG-Github\\SBG\\SBG\\mobile\\src\\main\\java\\com\\huawei\\mobile\\BrowserContext.java
 
 说明:
 - 测试用例唯一调用端口: GIDS HTTP服务端口 (默认9090)
@@ -809,7 +809,7 @@ async def main_async():
     TC_SBG_Func_E2E_001
     目标: 验证云手机完整端到端流程
     
-    参考: D:\Code\SBG-Github\SBG\SBG\mobile\src\main\java\com\huawei\mobile\BrowserContext.java
+    参考: D:\\Code\\SBG-Github\\SBG\\SBG\\mobile\\src\\main\\java\\com\\huawei\\mobile\\BrowserContext.java
     
     调用端口: GIDS HTTP服务端口
     - 三步登录: gridLoginAuth/gridLoginAuthOpenBrowser/deviceLoginAuth
