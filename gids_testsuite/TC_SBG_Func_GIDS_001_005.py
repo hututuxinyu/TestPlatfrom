@@ -22,7 +22,7 @@ def test_imsi_with_letters():
     print("[INFO] ========== 测试步骤1: IMSI 包含字母字符 ==========")
 
     test_data = {
-        "imsi": "68510155565ABC",  # 包含字母 - 异常值
+        "imsi": "68510155565ABC",
         "imei": "6258412454025411",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
@@ -43,19 +43,15 @@ def test_imsi_with_letters():
         "deviceType": "1000"
     }
 
-    print(f"[INFO] 请求参数: imsi={test_data['imsi']} (包含非数字字符)")
-    print(f"[INFO] 请求参数: imei={test_data['imei']}")
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
 
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
 
         print(f"[RESPONSE] Status: {response.status_code}")
-        print(f"[INFO] 响应数据: {response.text}")
+        print(f"[RESPONSE] Body: {response.text}")
 
         resp_json = response.json()
 
@@ -87,7 +83,7 @@ def test_imsi_empty():
     print("\n[INFO] ========== 测试步骤2: IMSI 为空字符串 ==========")
 
     test_data = {
-        "imsi": "",  # 空字符串 - 异常值
+        "imsi": "",
         "imei": "6258412454025411",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
@@ -108,18 +104,15 @@ def test_imsi_empty():
         "deviceType": "1000"
     }
 
-    print(f"[INFO] 请求参数: imsi='{test_data['imsi']}' (空字符串)")
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
 
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
 
         print(f"[RESPONSE] Status: {response.status_code}")
-        print(f"[INFO] 响应数据: {response.text}")
+        print(f"[RESPONSE] Body: {response.text}")
 
         resp_json = response.json()
 
@@ -148,7 +141,7 @@ def test_imsi_too_short():
     print("\n[INFO] ========== 测试步骤3: IMSI 长度过短 ==========")
 
     test_data = {
-        "imsi": "12345",  # 长度过短 - 异常值
+        "imsi": "12345",
         "imei": "6258412454025411",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
@@ -169,18 +162,15 @@ def test_imsi_too_short():
         "deviceType": "1000"
     }
 
-    print(f"[INFO] 请求参数: imsi={test_data['imsi']} (长度={len(test_data['imsi'])}, 正常应为15位)")
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
 
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
 
         print(f"[RESPONSE] Status: {response.status_code}")
-        print(f"[INFO] 响应数据: {response.text}")
+        print(f"[RESPONSE] Body: {response.text}")
 
         resp_json = response.json()
 
@@ -208,7 +198,7 @@ def test_valid_params():
     print("\n[INFO] ========== 测试步骤4: 正常参数验证 ==========")
 
     test_data = {
-        "imsi": "685101555652111",  # 正确的15位数字
+        "imsi": "685101555652111",
         "imei": "6258412454025411",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
@@ -229,18 +219,15 @@ def test_valid_params():
         "deviceType": "1000"
     }
 
-    print(f"[INFO] 请求参数: imsi={test_data['imsi']} (正确的15位数字)")
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
 
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
 
         print(f"[RESPONSE] Status: {response.status_code}")
-        print(f"[INFO] 响应数据: {response.text}")
+        print(f"[RESPONSE] Body: {response.text}")
 
         resp_json = response.json()
 

@@ -23,16 +23,15 @@ def test_delete_cache_success():
         "imsi": "685101555652111"
     }
     
+    url = f"{GIDS_ADDR}/app-api/devicetcp/cache/deleteCache"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/cache/deleteCache",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
-        print(f"[INFO] 响应数据: {response.text}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         resp_json = response.json()
         
@@ -58,15 +57,15 @@ def test_delete_cache_missing_imei():
         "imsi": "685101555652111"
     }
     
+    url = f"{GIDS_ADDR}/app-api/devicetcp/cache/deleteCache"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/cache/deleteCache",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         if response.status_code >= 400:
             print("[PASS] 正确拒绝缺失IMEI")
@@ -95,15 +94,15 @@ def test_delete_cache_missing_imsi():
         "imei": DEVICE_WHITE_IMEI
     }
     
+    url = f"{GIDS_ADDR}/app-api/devicetcp/cache/deleteCache"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/cache/deleteCache",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         if response.status_code >= 400:
             print("[PASS] 正确拒绝缺失IMSI")
@@ -133,15 +132,15 @@ def test_delete_cache_empty_params():
         "imsi": ""
     }
     
+    url = f"{GIDS_ADDR}/app-api/devicetcp/cache/deleteCache"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/cache/deleteCache",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         if response.status_code >= 400:
             print("[PASS] 正确拒绝空参数")

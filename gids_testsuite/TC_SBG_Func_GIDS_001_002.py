@@ -75,15 +75,16 @@ def test_blackimei_login():
     print("\n[INFO] ========== 测试步骤2: 非白名单IMEI登录 ==========")
     print(f"[INFO] IMEI: {DEVICE_BLACK_IMEI} (非白名单)")
     
+    test_data = get_test_data(DEVICE_BLACK_IMEI)
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=get_test_data(DEVICE_BLACK_IMEI),
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         resp_json = response.json()
         
@@ -116,15 +117,16 @@ def test_emptyimei_login():
     print("\n[INFO] ========== 测试步骤3: 空IMEI登录 ==========")
     print(f"[INFO] IMEI: 空字符串")
     
+    test_data = get_test_data("")
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=get_test_data(""),
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         resp_json = response.json()
         
@@ -147,15 +149,16 @@ def test_invalidimei_format():
     print("\n[INFO] ========== 测试步骤4: 格式错误的IMEI登录 ==========")
     print(f"[INFO] IMEI: ABCDEF123456789 (包含字母)")
     
+    test_data = get_test_data("ABCDEF123456789")
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=get_test_data("ABCDEF123456789"),
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         resp_json = response.json()
         

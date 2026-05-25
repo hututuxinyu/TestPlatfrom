@@ -44,20 +44,17 @@ def test_full_params():
     """步骤1: 发送包含所有参数的请求"""
     print("[INFO] ========== 测试步骤1: 全量参数请求 ==========")
     print(f"[INFO] 接口: /app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser")
-    print(f"[INFO] 请求参数数量: {len(TEST_DATA_FULL)}")
     print(f"[INFO] IMEI是否在白名单: {TEST_DATA_FULL['imei'] == DEVICE_WHITE_IMEI}")
-    print(f"[INFO] 请求参数: {json.dumps(TEST_DATA_FULL, indent=2, ensure_ascii=False)}")
+    
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(TEST_DATA_FULL, indent=2, ensure_ascii=False)}")
 
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=TEST_DATA_FULL,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=TEST_DATA_FULL, timeout=30, verify=False)
 
         print(f"[RESPONSE] Status: {response.status_code}")
-        print(f"[INFO] 响应数据: {response.text}")
+        print(f"[RESPONSE] Body: {response.text}")
 
         if response.status_code in [200, 201]:
             print("[SUCCESS] 全量参数请求成功")
@@ -88,20 +85,16 @@ def test_required_only():
     print("\n[INFO] ========== 测试步骤2: 仅必选参数请求 ==========")
     print(f"[INFO] 必选参数: {REQUIRED_PARAMS}")
 
-    # 构造仅包含必选参数的请求
     required_data = {k: TEST_DATA_FULL[k] for k in REQUIRED_PARAMS}
-    print(f"[INFO] 请求参数: {json.dumps(required_data, indent=2, ensure_ascii=False)}")
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(required_data, indent=2, ensure_ascii=False)}")
 
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=required_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=required_data, timeout=30, verify=False)
 
         print(f"[RESPONSE] Status: {response.status_code}")
-        print(f"[INFO] 响应数据: {response.text}")
+        print(f"[RESPONSE] Body: {response.text}")
 
         # 预期结果: 接口可能需要更多参数,这里可能返回错误或默认值
         if response.status_code in [200, 201]:
@@ -139,25 +132,20 @@ def test_required_only():
 def test_required_plus_one():
     """步骤3: 仅必选参数+1个可选参数"""
     print("\n[INFO] ========== 测试步骤3: 必选参数+1可选参数请求 ==========")
-
-    # 构造必选参数 + 1个可选参数(appType)
-    required_plus_one = {k: TEST_DATA_FULL[k] for k in REQUIRED_PARAMS}
-    required_plus_one["appType"] = TEST_DATA_FULL["appType"]
-
     print(f"[INFO] 必选参数: {REQUIRED_PARAMS}")
     print(f"[INFO] 额外可选参数: appType")
-    print(f"[INFO] 请求参数: {json.dumps(required_plus_one, indent=2, ensure_ascii=False)}")
+
+    required_plus_one = {k: TEST_DATA_FULL[k] for k in REQUIRED_PARAMS}
+    required_plus_one["appType"] = TEST_DATA_FULL["appType"]
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(required_plus_one, indent=2, ensure_ascii=False)}")
 
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=required_plus_one,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=required_plus_one, timeout=30, verify=False)
 
         print(f"[RESPONSE] Status: {response.status_code}")
-        print(f"[INFO] 响应数据: {response.text}")
+        print(f"[RESPONSE] Body: {response.text}")
 
         if response.status_code in [200, 201]:
             print("[SUCCESS] 必选参数+1可选参数请求成功")

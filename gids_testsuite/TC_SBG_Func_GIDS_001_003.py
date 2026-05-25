@@ -42,15 +42,12 @@ def test_missing_imsi():
     test_data = FULL_DATA.copy()
     del test_data['imsi']
     
-    print(f"[INFO] 请求参数(无imsi): {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
     
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
         print(f"[RESPONSE] Body: {response.text}")
@@ -78,17 +75,15 @@ def test_missing_imei():
     test_data = FULL_DATA.copy()
     del test_data['imei']
     
-    print(f"[INFO] 请求参数(无imei)")
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
     
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         resp_json = response.json()
         
@@ -114,17 +109,15 @@ def test_missing_both_imsi_imei():
     del test_data['imsi']
     del test_data['imei']
     
-    print(f"[INFO] 请求参数(无imsi和imei)")
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
     
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         resp_json = response.json()
         
@@ -146,15 +139,16 @@ def test_empty_body():
     """步骤4: 空请求体"""
     print("\n[INFO] ========== 测试步骤4: 空请求体 ==========")
     
+    test_data = {}
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {{}}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json={},
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         if response.status_code >= 400:
             print("[PASS] 正确拒绝空请求体")
@@ -179,17 +173,15 @@ def test_full_params():
     """步骤5: 全量参数正常请求"""
     print("\n[INFO] ========== 测试步骤5: 全量参数正常请求 ==========")
     
-    print(f"[INFO] 请求参数: 全量参数")
+    url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(FULL_DATA, indent=2, ensure_ascii=False)}")
     
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
-            json=FULL_DATA,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=FULL_DATA, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         resp_json = response.json()
         

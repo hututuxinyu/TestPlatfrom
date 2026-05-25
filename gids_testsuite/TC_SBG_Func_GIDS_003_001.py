@@ -27,16 +27,15 @@ def test_send_client_event_success():
         "type": "login"
     }
     
+    url = f"{GIDS_ADDR}/app-api/center/public/client/sendClientEvent"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/center/public/client/sendClientEvent",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
-        print(f"[INFO] 响应数据: {response.text}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         resp_json = response.json()
         
@@ -67,15 +66,15 @@ def test_send_client_event_invalid_imei():
         "type": "login"
     }
     
+    url = f"{GIDS_ADDR}/app-api/center/public/client/sendClientEvent"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/center/public/client/sendClientEvent",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         resp_json = response.json()
         
@@ -105,15 +104,15 @@ def test_send_client_event_missing_fields():
         "type": "login"
     }
     
+    url = f"{GIDS_ADDR}/app-api/center/public/client/sendClientEvent"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/center/public/client/sendClientEvent",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         if response.status_code >= 400:
             print("[PASS] 正确拒绝缺失IMEI")
@@ -153,15 +152,15 @@ def test_send_app_use_times_event():
         "playMode": "1"
     }
     
+    url = f"{GIDS_ADDR}/app-api/center/public/client/sendAppUseTimesEvent"
+    print(f"[REQUEST] URL: POST {url}")
+    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
+    
     try:
-        response = requests.post(
-            f"{GIDS_ADDR}/app-api/center/public/client/sendAppUseTimesEvent",
-            json=test_data,
-            timeout=30,
-            verify=False
-        )
+        response = requests.post(url, json=test_data, timeout=30, verify=False)
         
         print(f"[RESPONSE] Status: {response.status_code}")
+        print(f"[RESPONSE] Body: {response.text}")
         
         resp_json = response.json()
         
