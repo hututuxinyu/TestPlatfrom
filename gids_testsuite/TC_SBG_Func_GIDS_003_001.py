@@ -53,48 +53,9 @@ def test_send_client_event_success():
         print(f"[ERROR] 请求异常: {str(e)}")
         return False
 
-def test_send_client_event_invalid_imei():
-    """步骤2: 非白名单IMEI上报"""
-    print("\n[INFO] ========== 测试步骤2: 非白名单IMEI上报事件 ==========")
-    
-    test_data = {
-        "hsman": "test_manufacturer",
-        "hstype": "test_model",
-        "appType": "1",
-        "imei": "999999999999999",
-        "imsi": "685101555652111",
-        "type": "login"
-    }
-    
-    url = f"{GIDS_ADDR}/app-api/center/public/client/sendClientEvent"
-    print(f"[REQUEST] URL: POST {url}")
-    print(f"[REQUEST] Body: {json.dumps(test_data, indent=2, ensure_ascii=False)}")
-    
-    try:
-        response = requests.post(url, json=test_data, timeout=30, verify=False)
-        
-        print(f"[RESPONSE] Status: {response.status_code}")
-        print(f"[RESPONSE] Body: {response.text}")
-        
-        resp_json = response.json()
-        
-        if resp_json.get('code') == 200 and 'record success' in resp_json.get('message', '').lower():
-            print("[FAIL] BUG: 非白名单IMEI居然上报成功!")
-            return False
-        else:
-            print("[PASS] 正确拒绝非白名单IMEI")
-            return True
-            
-    except requests.exceptions.ConnectionError:
-        print(f"[ERROR] 连接失败")
-        return False
-    except Exception as e:
-        print(f"[ERROR] 请求异常: {str(e)}")
-        return False
-
 def test_send_client_event_missing_fields():
-    """步骤3: 缺失必选字段"""
-    print("\n[INFO] ========== 测试步骤3: 缺失IMEI字段 ==========")
+    """步骤2: 缺失必选字段"""
+    print("\n[INFO] ========== 测试步骤2: 缺失IMEI字段 ==========")
     
     test_data = {
         "hsman": "test_manufacturer",
@@ -134,8 +95,8 @@ def test_send_client_event_missing_fields():
         return False
 
 def test_send_app_use_times_event():
-    """步骤4: 应用使用时长事件上报"""
-    print("\n[INFO] ========== 测试步骤4: 应用使用时长事件上报 ==========")
+    """步骤3: 应用使用时长事件上报"""
+    print("\n[INFO] ========== 测试步骤3: 应用使用时长事件上报 ==========")
     print(f"[INFO] 接口: /app-api/center/public/client/sendAppUseTimesEvent")
     
     test_data = {
@@ -186,7 +147,6 @@ def main():
 ==================================================================
     """)
     print(f"[INFO] GIDS地址: {GIDS_ADDR}")
-    print(f"[INFO] 白名单IMEI: {DEVICE_WHITE_IMEI}")
     print("")
     
     test_results = []
@@ -194,14 +154,11 @@ def main():
     result1 = test_send_client_event_success()
     test_results.append(("步骤1: 正常上报客户端事件", result1))
     
-    result2 = test_send_client_event_invalid_imei()
-    test_results.append(("步骤2: 非白名单IMEI上报", result2))
+    result2 = test_send_client_event_missing_fields()
+    test_results.append(("步骤2: 缺失IMEI字段", result2))
     
-    result3 = test_send_client_event_missing_fields()
-    test_results.append(("步骤3: 缺失IMEI字段", result3))
-    
-    result4 = test_send_app_use_times_event()
-    test_results.append(("步骤4: 应用使用时长事件", result4))
+    result3 = test_send_app_use_times_event()
+    test_results.append(("步骤3: 应用使用时长事件", result3))
     
     print("\n[INFO] ========== 测试结果汇总 ==========")
     for step, result in test_results:

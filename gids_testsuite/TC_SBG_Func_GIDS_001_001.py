@@ -150,7 +150,6 @@ def main():
 ==================================================================
     """)
     print(f"[INFO] GIDS地址: {GIDS_ADDR}")
-    print(f"[INFO] 白名单IMEI: {DEVICE_WHITE_IMEI}")
     print("")
     
     test_results = []

@@ -44,7 +44,6 @@ def test_full_params():
     """步骤1: 发送包含所有参数的请求"""
     print("[INFO] ========== 测试步骤1: 全量参数请求 ==========")
     print(f"[INFO] 接口: /app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser")
-    print(f"[INFO] IMEI是否在白名单: {TEST_DATA_FULL['imei'] == DEVICE_WHITE_IMEI}")
     
     url = f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser"
     print(f"[REQUEST] URL: POST {url}")
@@ -192,7 +191,6 @@ def main():
 ==================================================================
     """)
     print(f"[INFO] GIDS地址: {GIDS_ADDR}")
-    print(f"[INFO] 白名单IMEI: {DEVICE_WHITE_IMEI}")
     print("")
 
     # 执行测试步骤
