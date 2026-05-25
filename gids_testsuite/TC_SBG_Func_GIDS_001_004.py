@@ -12,12 +12,12 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ========== 参数配置 (支持环境变量) ==========
 GIDS_ADDR = os.getenv('GIDS_ADDR', 'http://localhost:9090')
-DEVICE_WHITE_IMEI = os.getenv('DEVICE_WHITE_IMEI', '6258412454025411')
+DEVICE_WHITE_IMEI = os.getenv('DEVICE_WHITE_IMEI', '625841245402541')
 
 # ========== 测试数据 ==========
 TEST_DATA_FULL = {
-    "imsi": "68510155565211",
-    "imei": "6258412454025411",
+    "imsi": "685101555652111",
+    "imei": "625841245402541",
     "manufacturer": "xxx manufacturer",
     "model": "xx model",
     "appType": "1",

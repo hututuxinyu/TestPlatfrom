@@ -11,11 +11,11 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 GIDS_ADDR = os.getenv('GIDS_ADDR', 'http://127.0.0.1:9090')
-DEVICE_WHITE_IMEI = os.getenv('DEVICE_WHITE_IMEI', '6258412454025411')
+DEVICE_WHITE_IMEI = os.getenv('DEVICE_WHITE_IMEI', '625841245402541')
 
 FULL_DATA = {
     "imsi": "685101555652111",
-    "imei": "6258412454025411",
+    "imei": "625841245402541",
     "manufacturer": "test_manufacturer",
     "model": "test_model",
     "appType": "1",

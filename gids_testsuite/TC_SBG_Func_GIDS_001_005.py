@@ -23,7 +23,7 @@ def test_imsi_with_letters():
 
     test_data = {
         "imsi": "68510155565ABC",
-        "imei": "6258412454025411",
+        "imei": "625841245402541",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
         "appType": "1",
@@ -84,7 +84,7 @@ def test_imsi_empty():
 
     test_data = {
         "imsi": "",
-        "imei": "6258412454025411",
+        "imei": "625841245402541",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
         "appType": "1",
@@ -142,7 +142,7 @@ def test_imsi_too_short():
 
     test_data = {
         "imsi": "12345",
-        "imei": "6258412454025411",
+        "imei": "625841245402541",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
         "appType": "1",
@@ -199,7 +199,7 @@ def test_valid_params():
 
     test_data = {
         "imsi": "685101555652111",
-        "imei": "6258412454025411",
+        "imei": "625841245402541",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
         "appType": "1",

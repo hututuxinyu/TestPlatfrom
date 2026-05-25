@@ -11,7 +11,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 GIDS_ADDR = os.getenv('GIDS_ADDR', 'http://127.0.0.1:9090')
-DEVICE_WHITE_IMEI = os.getenv('DEVICE_WHITE_IMEI', '6258412454025411')
+DEVICE_WHITE_IMEI = os.getenv('DEVICE_WHITE_IMEI', '625841245402541')
 
 def test_send_client_event_success():
     """步骤1: 正常上报客户端事件"""
