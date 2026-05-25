@@ -6,6 +6,7 @@ import {
   Modal,
   Form,
   Input,
+  Select,
   message,
   Popconfirm,
   Card,
@@ -19,6 +20,12 @@ import {
 import { apiService, type ConfigResponse } from '../services/api';
 
 const { TextArea } = Input;
+
+const CONFIG_KEY_OPTIONS = [
+  { value: 'GIDS_ADDR', label: 'GIDS_ADDR - GIDS HTTP服务地址' },
+  { value: 'CONTROL_ADDR', label: 'CONTROL_ADDR - 控制通道地址 (IP:PORT)' },
+  { value: 'MEDIA_ADDR', label: 'MEDIA_ADDR - 媒体通道地址 (IP:PORT)' },
+];
 
 export default function ConfigPage() {
   const [configs, setConfigs] = useState<ConfigResponse[]>([]);
@@ -152,6 +159,13 @@ export default function ConfigPage() {
     },
   ];
 
+  const getSelectOptions = () => {
+    if (editingConfig && !CONFIG_KEY_OPTIONS.find(opt => opt.value === editingConfig.key)) {
+      return [...CONFIG_KEY_OPTIONS, { value: editingConfig.key, label: editingConfig.key }];
+    }
+    return CONFIG_KEY_OPTIONS;
+  };
+
   return (
     <div style={{ maxWidth: '100%' }}>
       <Card
@@ -228,10 +242,12 @@ export default function ConfigPage() {
             label="配置键"
             name="key"
             initialValue="GIDS_ADDR"
+            rules={[{ required: true, message: '请选择配置键' }]}
           >
-            <Input
-              value="GIDS_ADDR"
-              disabled
+            <Select
+              placeholder="选择配置键"
+              disabled={editingConfig !== null}
+              options={getSelectOptions()}
             />
           </Form.Item>
 
