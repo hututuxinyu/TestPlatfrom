@@ -27,10 +27,12 @@ except ImportError as e:
     print(f"[ERROR] 缺少依赖: {e}")
     sys.exit(1)
 
-GIDS_ADDR = os.getenv('GIDS_ADDR', 'http://127.0.0.1:9090')
+GIDS_ADDR = os.getenv('GIDS_ADDR', 'http://127.0.0.1:8090')
 DEVICE_WHITE_IMEI = os.getenv('DEVICE_WHITE_IMEI', '6258412454025411')
 DEVICE_WHITE_IMSI = os.getenv('DEVICE_WHITE_IMSI', '68510155565211')
 TEST_DURATION = int(os.getenv('TEST_DURATION', '60'))
+CONTROL_ADDR = os.getenv('CONTROL_ADDR', '')
+MEDIA_ADDR_ENV = os.getenv('MEDIA_ADDR', '')
 
 
 class E2ETestContext:
@@ -157,6 +159,13 @@ async def test_step1_three_step_login(context: E2ETestContext):
     return resp3.get('code') == 200
 
 
+def parse_addr(addr: str) -> tuple:
+    """解析地址字符串为(host, port)"""
+    addr = addr.replace('http://', '').replace('https://', '')
+    parts = addr.split(':')
+    return parts[0], int(parts[1])
+
+
 async def test_step2_control_channel_connect(context: E2ETestContext):
     """
     测试步骤2: 控制通道TCP连接
@@ -172,14 +181,19 @@ async def test_step2_control_channel_connect(context: E2ETestContext):
         print("[FAIL] 未完成登录，跳过此步骤")
         return False
     
-    tcp_addr = context.client.response.tcp_addr
     print(f"\n[TCP] ========== 控制通道连接 ==========")
-    print(f"[TCP] 地址: {tcp_addr}")
+    
+    if CONTROL_ADDR:
+        host, port = parse_addr(CONTROL_ADDR)
+        print(f"[TCP] 地址(环境变量): {host}:{port}")
+    elif context.client.response.tcp_addr:
+        host, port = parse_addr(context.client.response.tcp_addr)
+        print(f"[TCP] 地址(response): {context.client.response.tcp_addr}")
+    else:
+        context.add_assertion("控制通道连接", False, "未配置地址")
+        return False
     
     try:
-        parts = tcp_addr.split(':')
-        host = parts[0]
-        port = int(parts[1])
         
         reader, writer = await asyncio.open_connection(host, port)
         context.control_reader = reader
@@ -259,6 +273,14 @@ async def test_step2_control_channel_connect(context: E2ETestContext):
                         f"code={code}"
                     )
                     
+                    if code != 200:
+                        context.add_assertion(
+                            "控制通道登录失败(ACK code!=200)",
+                            False,
+                            f"code={code}"
+                        )
+                        return False
+                    
                     await asyncio.sleep(1)
                     data2 = await asyncio.wait_for(reader.read(3145728), timeout=10.0)
                     
@@ -282,6 +304,31 @@ async def test_step2_control_channel_connect(context: E2ETestContext):
                             )
                             
                             return True
+                        
+                        elif msg_type2 == TLV_TYPE['ACK']:
+                            code2 = TLVDecoder.get_int(packet2['fields'], TLV_ID['CODE'])
+                            
+                            context.add_assertion(
+                                "第二个ACK响应code=200",
+                                code2 == 200,
+                                f"code={code2}"
+                            )
+                            
+                            if code2 != 200:
+                                context.add_assertion(
+                                    "控制通道登录失败(第二个ACK code!=200)",
+                                    False,
+                                    f"code={code2}"
+                                )
+                                return False
+                    
+                    if not context.media_addr:
+                        context.add_assertion(
+                            "控制通道登录完成但未收到媒体地址",
+                            False,
+                            "需要等待RETURN_MEDIA或配置MEDIA_ADDR环境变量"
+                        )
+                        return False
                     
                     return True
         
@@ -308,18 +355,19 @@ async def test_step3_media_channel_connect(context: E2ETestContext):
     """
     print("\n[INFO] ========== 测试步骤3: 媒体通道TCP连接 ==========")
     
-    if not context.media_addr:
-        context.add_assertion("媒体通道连接", False, "未收到媒体地址")
+    print(f"\n[TCP] ========== 媒体通道连接 ==========")
+    
+    if MEDIA_ADDR_ENV:
+        media_host, media_port = parse_addr(MEDIA_ADDR_ENV)
+        print(f"[TCP] 地址(环境变量): {media_host}:{media_port}")
+    elif context.media_addr:
+        media_host, media_port = parse_addr(context.media_addr)
+        print(f"[TCP] 地址(response): {context.media_addr}")
+    else:
+        context.add_assertion("媒体通道连接", False, "未配置地址")
         return False
     
-    print(f"\n[TCP] ========== 媒体通道连接 ==========")
-    print(f"[TCP] 地址: {context.media_addr}")
-    
     try:
-        media_addr = context.media_addr.replace('http://', '').replace('https://', '')
-        media_parts = media_addr.split(':')
-        media_host = media_parts[0]
-        media_port = int(media_parts[1])
         
         reader, writer = await asyncio.open_connection(media_host, media_port)
         context.media_reader = reader
