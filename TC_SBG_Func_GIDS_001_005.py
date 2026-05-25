@@ -8,6 +8,8 @@ import requests
 import json
 import sys
 import os
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ========== 参数配置 (支持环境变量) ==========
 GIDS_ADDR = os.getenv('GIDS_ADDR', 'http://127.0.0.1:9090')
@@ -24,21 +26,21 @@ def test_imsi_with_letters():
         "imei": "6258412454025411",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
-        "appType": 1,
+        "appType": "1",
         "extendModel": "default",
         "country": "default",
         "platform": "default",
-        "width": 240,
-        "height": 320,
+        "width": "240",
+        "height": "320",
         "mcc": "460",
         "mnc": "00x",
         "lac": "100",
         "ci": "5.21",
-        "rxlev": -72,
-        "totalKb": 1424122,
-        "freeKb": 1424122,
+        "rxlev": "-72",
+        "totalKb": "1424122",
+        "freeKb": "1424122",
         "clientLanguage": "en",
-        "deviceType": 1000
+        "deviceType": "1000"
     }
 
     print(f"[INFO] 请求参数: imsi={test_data['imsi']} (包含非数字字符)")
@@ -48,7 +50,8 @@ def test_imsi_with_letters():
         response = requests.post(
             f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
             json=test_data,
-            timeout=30
+            timeout=30,
+            verify=False
         )
 
         print(f"[INFO] 响应状态码: {response.status_code}")
@@ -88,21 +91,21 @@ def test_imsi_empty():
         "imei": "6258412454025411",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
-        "appType": 1,
+        "appType": "1",
         "extendModel": "default",
         "country": "default",
         "platform": "default",
-        "width": 240,
-        "height": 320,
+        "width": "240",
+        "height": "320",
         "mcc": "460",
         "mnc": "00x",
         "lac": "100",
         "ci": "5.21",
-        "rxlev": -72,
-        "totalKb": 1424122,
-        "freeKb": 1424122,
+        "rxlev": "-72",
+        "totalKb": "1424122",
+        "freeKb": "1424122",
         "clientLanguage": "en",
-        "deviceType": 1000
+        "deviceType": "1000"
     }
 
     print(f"[INFO] 请求参数: imsi='{test_data['imsi']}' (空字符串)")
@@ -111,7 +114,8 @@ def test_imsi_empty():
         response = requests.post(
             f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
             json=test_data,
-            timeout=30
+            timeout=30,
+            verify=False
         )
 
         print(f"[INFO] 响应状态码: {response.status_code}")
@@ -148,21 +152,21 @@ def test_imsi_too_short():
         "imei": "6258412454025411",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
-        "appType": 1,
+        "appType": "1",
         "extendModel": "default",
         "country": "default",
         "platform": "default",
-        "width": 240,
-        "height": 320,
+        "width": "240",
+        "height": "320",
         "mcc": "460",
         "mnc": "00x",
         "lac": "100",
         "ci": "5.21",
-        "rxlev": -72,
-        "totalKb": 1424122,
-        "freeKb": 1424122,
+        "rxlev": "-72",
+        "totalKb": "1424122",
+        "freeKb": "1424122",
         "clientLanguage": "en",
-        "deviceType": 1000
+        "deviceType": "1000"
     }
 
     print(f"[INFO] 请求参数: imsi={test_data['imsi']} (长度={len(test_data['imsi'])}, 正常应为15位)")
@@ -171,7 +175,8 @@ def test_imsi_too_short():
         response = requests.post(
             f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
             json=test_data,
-            timeout=30
+            timeout=30,
+            verify=False
         )
 
         print(f"[INFO] 响应状态码: {response.status_code}")
@@ -207,21 +212,21 @@ def test_valid_params():
         "imei": "6258412454025411",
         "manufacturer": "xxx manufacturer",
         "model": "xx model",
-        "appType": 1,
+        "appType": "1",
         "extendModel": "default",
         "country": "default",
         "platform": "default",
-        "width": 240,
-        "height": 320,
+        "width": "240",
+        "height": "320",
         "mcc": "460",
         "mnc": "00x",
         "lac": "100",
         "ci": "5.21",
-        "rxlev": -72,
-        "totalKb": 1424122,
-        "freeKb": 1424122,
+        "rxlev": "-72",
+        "totalKb": "1424122",
+        "freeKb": "1424122",
         "clientLanguage": "en",
-        "deviceType": 1000
+        "deviceType": "1000"
     }
 
     print(f"[INFO] 请求参数: imsi={test_data['imsi']} (正确的15位数字)")
@@ -230,7 +235,8 @@ def test_valid_params():
         response = requests.post(
             f"{GIDS_ADDR}/app-api/devicetcp/app/login/v1/gridLoginAuthOpenBrowser",
             json=test_data,
-            timeout=30
+            timeout=30,
+            verify=False
         )
 
         print(f"[INFO] 响应状态码: {response.status_code}")
