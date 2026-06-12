@@ -210,6 +210,20 @@ func (r *ScriptRepository) ListAllBySuiteID(ctx context.Context, suiteID int) ([
 	return scripts, nil
 }
 
+func (r *ScriptRepository) GetLibFilesBySuiteID(ctx context.Context, suiteID int) []*models.TestScript {
+	allScripts, err := r.ListAllBySuiteID(ctx, suiteID)
+	if err != nil {
+		return nil
+	}
+	var libFiles []*models.TestScript
+	for _, script := range allScripts {
+		if script.ScriptType == "lib_file" {
+			libFiles = append(libFiles, script)
+		}
+	}
+	return libFiles
+}
+
 // Count returns the total number of scripts
 func (r *ScriptRepository) Count(ctx context.Context, language string) (int, error) {
 	query := `
